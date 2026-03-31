@@ -1,0 +1,28 @@
+id: social-agent-negotiation-v1
+name: Social Agent Collaboration Negotiation
+version: 0.1.0
+description: >
+  A multi-agent environment where two AI agents with asymmetric
+  information must negotiate, disagree constructively, and reach
+  consensus on real-world decisions. Benchmarks collaborative
+  reasoning capabilities directly relevant to Meta FAIR's
+  Collaborative Reasoner research agenda.
+domain: multi-agent-collaboration
+tasks:
+  - id: single-round-consensus
+    name: Single Round Consensus
+    difficulty: easy
+  - id: multi-round-negotiation
+    name: Multi Round Negotiation
+    difficulty: medium
+  - id: adversarial-information
+    name: Adversarial Information Detection
+    difficulty: hard
+observation_space:
+  type: structured
+  format: json
+action_space:
+  type: discrete-structured
+  format: json
+reward_range: [-0.5, 1.0]
+license: Apache-2.0
