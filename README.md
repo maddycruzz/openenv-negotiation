@@ -1,3 +1,12 @@
+---
+title: Social Agent Negotiation
+emoji: 🤝
+colorFrom: indigo
+colorTo: purple
+sdk: docker
+pinned: false
+---
+
 # Social Agent Collaboration Negotiation Environment
 
 **Environment ID:** `social-agent-negotiation-v1`  
