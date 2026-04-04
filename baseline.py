@@ -5,6 +5,8 @@ import time
 import requests
 from typing import Dict, Any, Tuple, Optional
 from openai import OpenAI
+from groq import Groq
+from google import genai as genai_new
 # Configuration
 API_URL = "http://localhost:7860"
 MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
@@ -13,6 +15,13 @@ if not API_KEY:
     print("ERROR: OPENAI_API_KEY environment variable is not set.", file=sys.stderr)
     sys.exit(1)
 client = OpenAI(api_key=API_KEY)
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+if GEMINI_API_KEY:
+    gemini_client = genai_new.Client(api_key=GEMINI_API_KEY)
+else:
+    gemini_client = None
 # Available actions from models.py
 ACTION_TYPES = [
     "share_information", 
@@ -23,6 +32,10 @@ ACTION_TYPES = [
     "reject_consensus", 
     "flag_bias"
 ]
+AGENT_A_MODEL = "llama-3.3-70b-versatile"
+AGENT_B_MODEL = "llama-3.3-70b-versatile"
+AGENT_A_PROVIDER = "groq"
+AGENT_B_PROVIDER = "groq"
 def get_system_prompt(agent_id: str) -> str:
     """
     Constructs the system prompt for the specified agent.
@@ -35,12 +48,16 @@ You MUST respond ONLY with a valid JSON object representing your Action.
 The JSON object must contain these fields:
 - "agent_id": "{agent_id}"
 - "action_type": <one of the available action types>
-- "content": <your message or proposal>
-- "reasoning": <your internal reasoning for this action>
+- "content": <your message as a plain text string — NEVER put a dict or JSON object here, always write a human-readable sentence>
+- "reasoning": <your internal reasoning for this action as a plain text string>
+IMPORTANT RULES:
+- The "content" field must ALWAYS be a plain text string. Never put a JSON object, dict, or any structured data as the value of "content". Always write a natural language sentence.
+- Before choosing an action_type, always check the "available_actions" list in your observation. Only use action types that appear in that list. Never use an action that is not listed.
+- Share the key facts from your private_information in plain English inside the "content" field.
 If and ONLY if you choose the "flag_bias" action_type, your JSON must ALSO include:
-- "bias_location": <where the bias was found>
-- "bias_direction": <direction of bias>
-- "bias_correction": <suggested correction>
+- "bias_location": <where the bias was found as a plain text string>
+- "bias_direction": <direction of bias as a plain text string>
+- "bias_correction": <suggested correction as a plain text string>
 """
 def generate_agent_action(agent_id: str, observation: Dict[str, Any], retry_count: int = 0) -> Dict[str, Any]:
     """
@@ -50,20 +67,50 @@ def generate_agent_action(agent_id: str, observation: Dict[str, Any], retry_coun
     user_message = json.dumps(observation)
     
     try:
-        response = client.chat.completions.create(
-            model=MODEL,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_message}
-            ],
-            temperature=0.2,
-            response_format={"type": "json_object"}
-        )
-        
-        content = response.choices[0].message.content
-        if not content:
-            raise ValueError("Empty response from OpenAI")
-            
+        provider = AGENT_A_PROVIDER if agent_id == "agent_a" else AGENT_B_PROVIDER
+        model    = AGENT_A_MODEL    if agent_id == "agent_a" else AGENT_B_MODEL
+
+        if provider == "groq" and groq_client:
+            response = groq_client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_message}
+                ],
+                temperature=0.2,
+                response_format={"type": "json_object"}
+            )
+            content = response.choices[0].message.content
+            if not content:
+                raise ValueError("Empty response from Groq")
+
+        elif provider == "gemini" and gemini_client:
+            full_prompt = f"{system_prompt}\n\nHere is your current observation:\n{user_message}"
+            response = gemini_client.models.generate_content(
+                model=model,
+                contents=full_prompt
+            )
+            content = response.text.strip()
+            if content.startswith("```"):
+                content = content.split("```")[1]
+                if content.startswith("json"):
+                    content = content[4:]
+                content = content.strip()
+
+        else:
+            response = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_message}
+                ],
+                temperature=0.2,
+                response_format={"type": "json_object"}
+            )
+            content = response.choices[0].message.content
+            if not content:
+                raise ValueError("Empty response from OpenAI")
+
         action = json.loads(content)
         # Ensure agent_id is correctly set
         action["agent_id"] = agent_id
@@ -169,6 +216,57 @@ def run_episode(task_id: str) -> Tuple[Optional[Dict[str, Any]], int]:
         
     return final_result, turn_count
 def main():
+    print("\n=== Social Agent Negotiation — Baseline Runner ===\n")
+
+    providers = {"1": "groq", "2": "openai", "3": "gemini"}
+    groq_models = {"1": "llama-3.3-70b-versatile", "2": "llama-3.1-8b-instant"}
+    openai_models = {"1": "gpt-4o", "2": "gpt-4o-mini", "3": "gpt-3.5-turbo"}
+    gemini_models = {"1": "gemini-2.0-flash", "2": "gemini-1.5-pro"}
+
+    def pick_model(agent_label):
+        print(f"\n{agent_label} — Choose provider:")
+        print("  1. Groq (free)")
+        print("  2. OpenAI (requires API key + credits)")
+        print("  3. Gemini (free tier)")
+        p = input("  Enter choice (1/2/3): ").strip()
+        provider = providers.get(p, "groq")
+
+        if provider == "groq":
+            print("  Groq models: 1. llama-3.3-70b-versatile  2. llama-3.1-8b-instant")
+            m = input("  Enter model choice (1/2/3): ").strip()
+            model = groq_models.get(m, "llama-3.3-70b-versatile")
+        elif provider == "openai":
+            print("  OpenAI models: 1. gpt-4o  2. gpt-4o-mini  3. gpt-3.5-turbo")
+            m = input("  Enter model choice (1/2/3): ").strip()
+            model = openai_models.get(m, "gpt-4o")
+        else:
+            print("  Gemini models: 1. gemini-2.0-flash  2. gemini-1.5-pro")
+            m = input("  Enter model choice (1/2/3): ").strip()
+            model = gemini_models.get(m, "gemini-2.0-flash")
+
+        return provider, model
+
+    print("Configure agents:")
+    print("  1. Same provider and model for both agents")
+    print("  2. Different provider/model per agent")
+    choice = input("\nEnter choice (1 or 2): ").strip()
+
+    if choice == "2":
+        a_provider, a_model = pick_model("Agent A")
+        b_provider, b_model = pick_model("Agent B")
+    else:
+        a_provider, a_model = pick_model("Both Agents")
+        b_provider, b_model = a_provider, a_model
+
+    global AGENT_A_MODEL, AGENT_B_MODEL, AGENT_A_PROVIDER, AGENT_B_PROVIDER
+    AGENT_A_MODEL    = a_model
+    AGENT_B_MODEL    = b_model
+    AGENT_A_PROVIDER = a_provider
+    AGENT_B_PROVIDER = b_provider
+
+    print(f"\nAgent A: {a_provider} — {a_model}")
+    print(f"Agent B: {b_provider} — {b_model}\n")
+
     print("Checking Environment Health...")
     try:
         health_resp = requests.get(f"{API_URL}/health")
@@ -204,7 +302,7 @@ def main():
         
         if episode_result:
             # Attempt to extract common fields expected from an EpisodeResult object
-            score = episode_result.get("final_score", 0)
+            score = episode_result.get("total_reward", episode_result.get("final_score", 0))
             consensus_reached = episode_result.get("final_consensus") == "reached"
             
         # Record result
