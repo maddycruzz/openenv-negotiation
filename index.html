@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Social Agent Negotiation — OpenEnv</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#05050a;--surface:#0d0d16;--surface2:#12121f;--border:#1a1a2e;
+  --accent:#6366f1;--accent2:#8b5cf6;--accent3:#06b6d4;
+  --green:#22c55e;--yellow:#eab308;--red:#ef4444;
+  --text:#e2e8f0;--muted:#4a5568;--muted2:#64748b;
+}
+body{background:var(--bg);color:var(--text);font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;min-height:100vh;overflow-x:hidden}
+.bg-animation{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none}
+.orb{position:absolute;border-radius:50%;filter:blur(100px);opacity:0.12;animation:float 10s ease-in-out infinite}
+.orb1{width:700px;height:700px;background:radial-gradient(circle,#6366f1,transparent);top:-300px;left:-200px;animation-delay:0s}
+.orb2{width:500px;height:500px;background:radial-gradient(circle,#8b5cf6,transparent);bottom:-200px;right:-100px;animation-delay:-4s}
+.orb3{width:400px;height:400px;background:radial-gradient(circle,#06b6d4,transparent);top:40%;left:60%;animation-delay:-7s}
+@keyframes float{0%,100%{transform:translate(0,0)}33%{transform:translate(40px,-40px)}66%{transform:translate(-30px,30px)}}
+.grid{position:fixed;inset:0;z-index:0;background-image:linear-gradient(rgba(99,102,241,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(99,102,241,0.03) 1px,transparent 1px);background-size:60px 60px}
+.wrap{max-width:1100px;margin:0 auto;padding:0 24px;position:relative;z-index:1}
+
+/* NAV */
+nav{border-bottom:1px solid var(--border);backdrop-filter:blur(20px);background:rgba(5,5,10,0.85);position:sticky;top:0;z-index:100}
+.nav-i{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;max-width:1100px;margin:0 auto}
+.logo{display:flex;align-items:center;gap:12px;text-decoration:none}
+.logo-icon{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 0 24px rgba(99,102,241,0.5)}
+.logo-t{font-weight:700;font-size:14px;letter-spacing:-0.3px;color:var(--text)}
+.logo-s{color:var(--muted2);font-size:11px;margin-top:1px}
+.live{display:flex;align-items:center;gap:6px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:100px;padding:5px 12px;font-size:11px;font-weight:700;color:var(--green);cursor:pointer;transition:all 0.2s}
+.live:hover{background:rgba(34,197,94,0.15)}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pdot 2s infinite}
+@keyframes pdot{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(34,197,94,0.5)}50%{opacity:0.7;box-shadow:0 0 0 6px rgba(34,197,94,0)}}
+.nav-r{display:flex;gap:6px;align-items:center}
+.nl{padding:7px 14px;border-radius:8px;font-size:13px;font-weight:500;color:var(--muted2);text-decoration:none;transition:all 0.2s;border:1px solid transparent}
+.nl:hover{color:var(--text);background:var(--surface2);border-color:var(--border)}
+.nl.p{background:linear-gradient(135deg,var(--accent),var(--accent2));color:white;border:none;box-shadow:0 0 20px rgba(99,102,241,0.3)}
+.nl.p:hover{box-shadow:0 0 35px rgba(99,102,241,0.55);transform:translateY(-1px)}
+
+/* HERO */
+.hero{padding:110px 0 90px;text-align:center}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:100px;padding:6px 16px;font-size:11px;font-weight:700;color:#818cf8;letter-spacing:1px;text-transform:uppercase;margin-bottom:32px}
+.eyebrow-dot{width:5px;height:5px;border-radius:50%;background:#818cf8;animation:pdot 2s infinite}
+h1{font-size:clamp(44px,7vw,76px);font-weight:900;letter-spacing:-3px;line-height:1.0;margin-bottom:28px}
+.grad{background:linear-gradient(135deg,#6366f1 0%,#a78bfa 50%,#38bdf8 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.sub{font-size:19px;color:var(--muted2);max-width:580px;margin:0 auto 52px;line-height:1.7}
+.cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.btn{padding:14px 28px;border-radius:12px;font-size:14px;font-weight:600;text-decoration:none;transition:all 0.25s;display:inline-flex;align-items:center;gap:8px}
+.btn-p{background:linear-gradient(135deg,var(--accent),var(--accent2));color:white;box-shadow:0 0 40px rgba(99,102,241,0.4),inset 0 1px 0 rgba(255,255,255,0.1)}
+.btn-p:hover{transform:translateY(-2px);box-shadow:0 0 60px rgba(99,102,241,0.6),inset 0 1px 0 rgba(255,255,255,0.1)}
+.btn-s{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
+.btn-s:hover{border-color:var(--accent);color:var(--accent);transform:translateY(-1px)}
+
+/* LIVE DEMO */
+.demo{margin:0 0 90px;border:1px solid var(--border);border-radius:20px;overflow:hidden;background:var(--surface);box-shadow:0 0 80px rgba(99,102,241,0.08),0 40px 80px rgba(0,0,0,0.4)}
+.demo-hdr{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface2)}
+.demo-dots{display:flex;gap:6px}
+.dd{width:10px;height:10px;border-radius:50%}
+.dd:nth-child(1){background:#ef4444}.dd:nth-child(2){background:#eab308}.dd:nth-child(3){background:#22c55e}
+.demo-title-bar{font-size:12px;color:var(--muted2);font-family:'SF Mono',Monaco,monospace}
+.demo-body{padding:28px;font-family:'SF Mono',Monaco,monospace;font-size:13px;line-height:2;min-height:220px}
+.dl{opacity:0;transform:translateY(4px);transition:all 0.5s ease}
+.dl.show{opacity:1;transform:translateY(0)}
+.da{color:#818cf8}.db{color:#34d399}.ds{color:var(--muted2)}.dr{color:#f59e0b}.dg{color:#22c55e}
+.cursor{display:inline-block;width:2px;height:14px;background:var(--accent);animation:blink 1s infinite;vertical-align:middle;margin-left:3px}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:20px;overflow:hidden;margin:0 0 90px}
+.stat{background:var(--surface);padding:36px 24px;text-align:center;transition:background 0.3s;position:relative;overflow:hidden}
+.stat::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(99,102,241,0.06),transparent);opacity:0;transition:opacity 0.3s}
+.stat:hover{background:var(--surface2)}.stat:hover::before{opacity:1}
+.sv{font-size:40px;font-weight:900;letter-spacing:-2px;background:linear-gradient(135deg,var(--accent),var(--accent3));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.sl{color:var(--muted2);font-size:11px;margin-top:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
+
+/* SECTION */
+.sec-eye{font-size:11px;font-weight:700;color:var(--accent);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px}
+.sec-h{font-size:38px;font-weight:800;letter-spacing:-1.5px;margin-bottom:10px}
+.sec-s{color:var(--muted2);font-size:15px;margin-bottom:52px;line-height:1.6}
+
+/* TASKS */
+.tasks{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:90px}
+.tc{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:28px;transition:all 0.3s;position:relative;overflow:hidden}
+.tc.easy{border-top:2px solid var(--green)}.tc.medium{border-top:2px solid var(--yellow)}.tc.hard{border-top:2px solid var(--red)}
+.tc:hover{transform:translateY(-5px)}
+.tc.easy:hover{box-shadow:0 24px 60px rgba(34,197,94,0.12),0 0 0 1px rgba(34,197,94,0.15)}
+.tc.medium:hover{box-shadow:0 24px 60px rgba(234,179,8,0.12),0 0 0 1px rgba(234,179,8,0.15)}
+.tc.hard:hover{box-shadow:0 24px 60px rgba(239,68,68,0.12),0 0 0 1px rgba(239,68,68,0.15)}
+.tb{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:100px;font-size:11px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:16px}
+.easy .tb{background:rgba(34,197,94,0.1);color:var(--green);border:1px solid rgba(34,197,94,0.2)}
+.medium .tb{background:rgba(234,179,8,0.1);color:var(--yellow);border:1px solid rgba(234,179,8,0.2)}
+.hard .tb{background:rgba(239,68,68,0.1);color:var(--red);border:1px solid rgba(239,68,68,0.2)}
+.tt{font-size:18px;font-weight:700;margin-bottom:10px;letter-spacing:-0.3px}
+.td{color:var(--muted2);font-size:13px;line-height:1.7;margin-bottom:20px}
+.tf{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding-top:16px;border-top:1px solid var(--border)}
+.tm{text-align:center}
+.tm-v{font-size:16px;font-weight:800;letter-spacing:-0.5px;font-family:'SF Mono',Monaco,monospace}
+.tm-l{font-size:10px;color:var(--muted2);text-transform:uppercase;letter-spacing:0.5px;margin-top:2px}
+.easy .tm-v{color:var(--green)}.medium .tm-v{color:var(--yellow)}.hard .tm-v{color:var(--red)}
+
+/* NEGOTIATION FLOW */
+.flow-section{margin-bottom:90px}
+.flow{display:flex;gap:0;align-items:stretch;background:var(--surface);border:1px solid var(--border);border-radius:20px;overflow:hidden}
+.agent-col{flex:1;padding:28px}
+.agent-col:first-child{border-right:1px solid var(--border)}
+.agent-label{display:flex;align-items:center;gap:8px;margin-bottom:20px}
+.agent-avatar{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800}
+.aa{background:rgba(99,102,241,0.2);color:#818cf8}
+.ab{background:rgba(52,211,153,0.2);color:#34d399}
+.agent-name{font-size:13px;font-weight:700}
+.agent-sub{font-size:11px;color:var(--muted2)}
+.msg{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;font-size:12px;line-height:1.6;color:var(--muted2)}
+.msg.highlight{border-color:rgba(99,102,241,0.3);color:var(--text)}
+.action-tag{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px}
+.at-share{color:#818cf8}.at-propose{color:#22c55e}.at-accept{color:#f59e0b}.at-flag{color:#ef4444}
+.flow-center{width:60px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:20px 0;border-right:1px solid var(--border)}
+.flow-arrow{color:var(--muted2);font-size:18px;animation:bounce 2s infinite}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+
+/* REWARDS */
+.rw-section{margin-bottom:90px}
+.rw-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.rw-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:28px}
+.rw-title{font-size:11px;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:1px;margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.rw-item{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid rgba(255,255,255,0.03);font-size:13px}
+.rw-item:last-child{border:none}
+.rw-name{color:var(--muted2)}
+.rw-val{font-weight:800;font-family:'SF Mono',Monaco,monospace;font-size:14px}
+.pos{color:var(--green)}.neg{color:var(--red)}
+
+/* ACTIONS */
+.act-section{margin-bottom:90px}
+.act-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.act{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 20px;display:flex;align-items:center;gap:14px;transition:all 0.2s}
+.act:hover{border-color:var(--accent);transform:translateX(4px)}
+.act-code{font-family:'SF Mono',Monaco,monospace;font-size:12px;background:rgba(99,102,241,0.1);color:#818cf8;padding:5px 10px;border-radius:7px;white-space:nowrap;border:1px solid rgba(99,102,241,0.15)}
+.act-desc{font-size:13px;color:var(--muted2);line-height:1.4}
+
+/* API */
+.api-section{margin-bottom:90px}
+.ep-list{display:flex;flex-direction:column;gap:8px}
+.ep{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 20px;display:flex;align-items:center;gap:16px;transition:all 0.2s}
+.ep:hover{border-color:var(--accent);transform:translateX(4px)}
+.method{font-family:'SF Mono',Monaco,monospace;font-size:11px;font-weight:800;padding:4px 10px;border-radius:6px;min-width:48px;text-align:center;letter-spacing:0.5px}
+.get{background:rgba(34,197,94,0.1);color:var(--green);border:1px solid rgba(34,197,94,0.2)}
+.post{background:rgba(99,102,241,0.1);color:#818cf8;border:1px solid rgba(99,102,241,0.2)}
+.ep-path{font-family:'SF Mono',Monaco,monospace;font-size:14px;font-weight:700;min-width:100px}
+.ep-desc{color:var(--muted2);font-size:13px}
+
+/* BASELINE */
+.baseline-section{margin-bottom:90px}
+.bl-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.bl-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:28px}
+.bl-title{font-size:13px;font-weight:700;color:var(--muted2);margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.bl-model{font-size:11px;font-family:'SF Mono',Monaco,monospace;background:var(--surface2);padding:3px 8px;border-radius:6px;color:#818cf8}
+.bl-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.03);font-size:13px}
+.bl-row:last-child{border:none}
+.bl-task{color:var(--muted2)}
+.bl-score{font-family:'SF Mono',Monaco,monospace;font-weight:800;font-size:15px}
+.bl-turns{font-size:11px;color:var(--muted2);font-family:'SF Mono',Monaco,monospace}
+.score-bar{width:60px;height:4px;background:var(--border);border-radius:2px;overflow:hidden}
+.score-fill{height:100%;border-radius:2px;transition:width 1s ease}
+.bl-meta{display:flex;align-items:center;gap:10px}
+
+/* FOOTER */
+footer{border-top:1px solid var(--border);padding:40px 0;text-align:center;color:var(--muted2);font-size:13px}
+.fl{display:flex;gap:24px;justify-content:center;margin-bottom:16px}
+.fl a{color:var(--muted2);text-decoration:none;transition:color 0.2s}
+.fl a:hover{color:var(--text)}
+.fc{opacity:0.5}
+
+@media(max-width:768px){
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .tasks{grid-template-columns:1fr}
+  .rw-grid,.act-grid,.bl-grid{grid-template-columns:1fr}
+  .nav-r .nl:not(.p){display:none}
+  .flow{flex-direction:column}
+  .flow-center{display:none}
+  .agent-col:first-child{border-right:none;border-bottom:1px solid var(--border)}
+  h1{letter-spacing:-2px}
+}
+</style>
+</head>
+<body>
+<div class="bg-animation">
+  <div class="orb orb1"></div>
+  <div class="orb orb2"></div>
+  <div class="orb orb3"></div>
+</div>
+<div class="grid"></div>
+
+<nav>
+  <div class="nav-i">
+    <a href="/" class="logo">
+      <div class="logo-icon">🤝</div>
+      <div>
+        <div class="logo-t">social-agent-negotiation-v1</div>
+        <div class="logo-s">OpenEnv · Meta × HuggingFace Hackathon</div>
+      </div>
+    </a>
+    <div class="live" onclick="checkHealth()">
+      <div class="live-dot" id="live-dot"></div>
+      <span id="live-text">Checking...</span>
+    </div>
+    <div class="nav-r">
+      <a href="#tasks" class="nl">Tasks</a>
+      <a href="#api" class="nl">API</a>
+      <a href="/docs" class="nl p">Swagger UI →</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <div class="hero">
+    <div class="eyebrow"><div class="eyebrow-dot"></div>OpenEnv · Multi-Agent · Meta FAIR Aligned</div>
+    <h1>Two agents.<br><span class="grad">One truth.</span></h1>
+    <p class="sub">A benchmark where AI agents with asymmetric information must negotiate, disagree constructively, and reach consensus on high-stakes decisions.</p>
+    <div class="cta">
+      <a href="/docs" class="btn btn-p">Explore API →</a>
+      <a href="#tasks" class="btn btn-s">View Tasks</a>
+    </div>
+  </div>
+
+  <!-- LIVE DEMO -->
+  <div class="demo">
+    <div class="demo-hdr">
+      <div class="demo-dots"><div class="dd"></div><div class="dd"></div><div class="dd"></div></div>
+      <div class="demo-title-bar">live negotiation — single-round-consensus</div>
+      <div style="font-size:11px;color:var(--muted2)">episode replay</div>
+    </div>
+    <div class="demo-body" id="demo-body">
+      <div class="dl ds" id="d0">$ env.reset(task_id="single-round-consensus")</div>
+      <div class="dl ds" id="d1">→ Episode started. Turn limit: 6. Agents initialized.</div>
+      <div class="dl" id="d2"><span class="da">[agent_a · share_information]</span></div>
+      <div class="dl da" id="d3">&nbsp;&nbsp;"I'm seeing BP 88/60 with tachycardia at 112bpm. Severe chest pain radiating to left arm — 35 min ago. Leaning CRITICAL."</div>
+      <div class="dl dr" id="d4">&nbsp;&nbsp;+0.05 information_disclosure</div>
+      <div class="dl" id="d5"><span class="db">[agent_b · share_information]</span></div>
+      <div class="dl db" id="d6">&nbsp;&nbsp;"ECG shows ST-elevation in II, III, aVF — inferior STEMI confirmed. Troponin 2.8ng/mL (70× above normal). Cath lab immediately."</div>
+      <div class="dl dr" id="d7">&nbsp;&nbsp;+0.05 information_disclosure · +0.03 active_listening</div>
+      <div class="dl" id="d8"><span class="da">[agent_a · propose_consensus]</span></div>
+      <div class="dl da" id="d9">&nbsp;&nbsp;"Given your STEMI confirmation and my hemodynamic data — I propose CRITICAL priority. Activate cath lab now."</div>
+      <div class="dl" id="d10"><span class="db">[agent_b · accept_consensus]</span></div>
+      <div class="dl db" id="d11">&nbsp;&nbsp;"Agreed. STEMI + hemodynamic compromise = CRITICAL. Cath lab activated."</div>
+      <div class="dl dg" id="d12">✓ Consensus reached in 4 turns · Final score: 0.18 · Correct answer: CRITICAL<span class="cursor"></span></div>
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats">
+    <div class="stat"><div class="sv">3</div><div class="sl">Tasks</div></div>
+    <div class="stat"><div class="sv">7</div><div class="sl">Action Types</div></div>
+    <div class="stat"><div class="sv">1.5</div><div class="sl">Reward Range</div></div>
+    <div class="stat"><div class="sv">v0.1</div><div class="sl">Version</div></div>
+  </div>
+
+  <!-- TASKS -->
+  <div id="tasks">
+    <div class="sec-eye">Tasks</div>
+    <div class="sec-h">Three levels of difficulty</div>
+    <p class="sec-s">Each task tests a different dimension of collaborative reasoning under asymmetric information.</p>
+    <div class="tasks">
+      <div class="tc easy">
+        <div class="tb">● Easy</div>
+        <div class="tt">Single Round Consensus</div>
+        <p class="td">Both agents receive aligned information with minor differences. Must agree within a few turns. Tests basic communication and agreement capabilities.</p>
+        <div class="tf">
+          <div class="tm"><div class="tm-v">6</div><div class="tm-l">Max Turns</div></div>
+          <div class="tm"><div class="tm-v">0.16</div><div class="tm-l">Baseline</div></div>
+          <div class="tm"><div class="tm-v">4</div><div class="tm-l">Avg Turns</div></div>
+        </div>
+      </div>
+      <div class="tc medium">
+        <div class="tb">◆ Medium</div>
+        <div class="tt">Multi Round Negotiation</div>
+        <p class="td">Agents receive conflicting data pointing to different diagnoses. Correct answer requires synthesising both datasets — neither agent has the full picture.</p>
+        <div class="tf">
+          <div class="tm"><div class="tm-v">10</div><div class="tm-l">Max Turns</div></div>
+          <div class="tm"><div class="tm-v">0.18</div><div class="tm-l">Baseline</div></div>
+          <div class="tm"><div class="tm-v">5</div><div class="tm-l">Avg Turns</div></div>
+        </div>
+      </div>
+      <div class="tc hard">
+        <div class="tb">▲ Hard</div>
+        <div class="tt">Adversarial Information</div>
+        <p class="td">One agent's data contains a subtle framing bias. Agents must detect it using flag_bias, then make three cascading decisions under time pressure.</p>
+        <div class="tf">
+          <div class="tm"><div class="tm-v">14</div><div class="tm-l">Max Turns</div></div>
+          <div class="tm"><div class="tm-v">0.15</div><div class="tm-l">Baseline</div></div>
+          <div class="tm"><div class="tm-v">6</div><div class="tm-l">Avg Turns</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- NEGOTIATION FLOW -->
+  <div class="flow-section">
+    <div class="sec-eye">How It Works</div>
+    <div class="sec-h">The negotiation loop</div>
+    <p class="sec-s">Agents alternate turns, each seeing only their own private information plus the shared conversation history.</p>
+    <div class="flow">
+      <div class="agent-col">
+        <div class="agent-label">
+          <div class="agent-avatar aa">A</div>
+          <div><div class="agent-name">Agent A</div><div class="agent-sub">Has private info set α</div></div>
+        </div>
+        <div class="msg highlight"><div class="action-tag at-share">↑ share_information</div><br>Shares facts only visible to Agent A</div>
+        <div class="msg"><div class="action-tag at-propose">◎ propose_consensus</div><br>Puts a joint decision on the table</div>
+        <div class="msg"><div class="action-tag at-accept">✓ accept_consensus</div><br>Agrees to Agent B's counter-proposal</div>
+      </div>
+      <div class="agent-col">
+        <div class="agent-label">
+          <div class="agent-avatar ab">B</div>
+          <div><div class="agent-name">Agent B</div><div class="agent-sub">Has private info set β</div></div>
+        </div>
+        <div class="msg"><div class="action-tag at-share">↑ share_information</div><br>Shares facts only visible to Agent B</div>
+        <div class="msg highlight"><div class="action-tag at-flag">⚑ flag_bias</div><br>Detects misleading framing in information</div>
+        <div class="msg"><div class="action-tag at-propose">◎ propose_consensus</div><br>Proposes a corrected joint decision</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- REWARDS -->
+  <div class="rw-section" id="rewards">
+    <div class="sec-eye">Reward Function</div>
+    <div class="sec-h">Every turn is scored</div>
+    <p class="sec-s">Step-level signals guide agents toward better collaboration. Total range: -0.5 to +1.0</p>
+    <div class="rw-grid">
+      <div class="rw-card">
+        <div class="rw-title">Step Rewards — fired every turn</div>
+        <div class="rw-item"><span class="rw-name">Share new private information</span><span class="rw-val pos">+0.05</span></div>
+        <div class="rw-item"><span class="rw-name">Acknowledge other agent's point</span><span class="rw-val pos">+0.03</span></div>
+        <div class="rw-item"><span class="rw-name">Identify a conflict or discrepancy</span><span class="rw-val pos">+0.05</span></div>
+        <div class="rw-item"><span class="rw-name">Repeat argument without new info</span><span class="rw-val neg">-0.05</span></div>
+        <div class="rw-item"><span class="rw-name">Capitulate without reasoning</span><span class="rw-val neg">-0.10</span></div>
+        <div class="rw-item"><span class="rw-name">Each turn past 80% of limit</span><span class="rw-val neg">-0.03</span></div>
+        <div class="rw-item"><span class="rw-name">Hard turn limit hit</span><span class="rw-val neg">-0.15</span></div>
+      </div>
+      <div class="rw-card">
+        <div class="rw-title">Episode Rewards — fired at termination</div>
+        <div class="rw-item"><span class="rw-name">Correctness of final decision</span><span class="rw-val pos">+0.70</span></div>
+        <div class="rw-item"><span class="rw-name">Quality of reasoning</span><span class="rw-val pos">+0.20</span></div>
+        <div class="rw-item"><span class="rw-name">Efficiency bonus</span><span class="rw-val pos">+0.10</span></div>
+        <div style="margin-top:24px;padding:16px;background:var(--surface2);border-radius:12px;border:1px solid var(--border)">
+          <div style="font-size:11px;color:var(--muted2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Cascade Penalty (Task 3)</div>
+          <div style="font-size:13px;color:var(--text);line-height:1.6">If bias is not detected, all decision scores are capped at 0.5 — agents must reason through the bias, not just stumble onto the right answer.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACTIONS -->
+  <div class="act-section">
+    <div class="sec-eye">Action Space</div>
+    <div class="sec-h">Seven structured moves</div>
+    <p class="sec-s">Available actions depend on current consensus state — the environment enforces legal moves.</p>
+    <div class="act-grid">
+      <div class="act"><span class="act-code">share_information</span><span class="act-desc">Disclose private facts to the other agent</span></div>
+      <div class="act"><span class="act-code">propose_consensus</span><span class="act-desc">Put a joint decision on the table</span></div>
+      <div class="act"><span class="act-code">challenge_proposal</span><span class="act-desc">Push back on the current proposal</span></div>
+      <div class="act"><span class="act-code">request_clarification</span><span class="act-desc">Ask the other agent a question</span></div>
+      <div class="act"><span class="act-code">accept_consensus</span><span class="act-desc">Agree to the current proposal</span></div>
+      <div class="act"><span class="act-code">reject_consensus</span><span class="act-desc">Reject and restart negotiation</span></div>
+      <div class="act" style="grid-column:1/-1;border-color:rgba(239,68,68,0.2)"><span class="act-code" style="color:#f87171;background:rgba(239,68,68,0.1);border-color:rgba(239,68,68,0.2)">flag_bias</span><span class="act-desc">Signal detected bias — requires bias_location, bias_direction, bias_correction fields. Quality scored independently.</span></div>
+    </div>
+  </div>
+
+  <!-- API -->
+  <div class="api-section" id="api">
+    <div class="sec-eye">API</div>
+    <div class="sec-h">Five endpoints</div>
+    <p class="sec-s">Full OpenEnv-compatible HTTP interface. Interactive docs at <a href="/docs" style="color:var(--accent)">/docs</a></p>
+    <div class="ep-list">
+      <div class="ep"><span class="method get">GET</span><span class="ep-path">/health</span><span class="ep-desc">Health check — environment ID and version</span></div>
+      <div class="ep"><span class="method get">GET</span><span class="ep-path">/tasks</span><span class="ep-desc">List all three task definitions — excludes internal grader data</span></div>
+      <div class="ep"><span class="method post">POST</span><span class="ep-path">/reset</span><span class="ep-desc">Start new episode → returns initial observations for both agents</span></div>
+      <div class="ep"><span class="method post">POST</span><span class="ep-path">/step</span><span class="ep-desc">Submit agent action → new observations, reward, done signal, episode result</span></div>
+      <div class="ep"><span class="method get">GET</span><span class="ep-path">/state</span><span class="ep-desc">Full god-view environment state — grader internals, correct answers, both private info sets</span></div>
+    </div>
+  </div>
+
+  <!-- BASELINE -->
+  <div class="baseline-section">
+    <div class="sec-eye">Baseline Results</div>
+    <div class="sec-h">Real scores from real agents</div>
+    <p class="sec-s">Run with free Groq models. GPT-4o scores higher — these represent reproducible free-tier results.</p>
+    <div class="bl-grid">
+      <div class="bl-card">
+        <div class="bl-title">Same Model Test<span class="bl-model">llama-3.3-70b × 2</span></div>
+        <div class="bl-row"><span class="bl-task">single-round-consensus</span><div class="bl-meta"><div class="score-bar"><div class="score-fill" style="width:16%;background:#22c55e"></div></div><span class="bl-score" style="color:#22c55e">0.16</span><span class="bl-turns">4t</span></div></div>
+        <div class="bl-row"><span class="bl-task">multi-round-negotiation</span><div class="bl-meta"><div class="score-bar"><div class="score-fill" style="width:16%;background:#eab308"></div></div><span class="bl-score" style="color:#eab308">0.16</span><span class="bl-turns">4t</span></div></div>
+        <div class="bl-row"><span class="bl-task">adversarial-information</span><div class="bl-meta"><div class="score-bar"><div class="score-fill" style="width:18%;background:#ef4444"></div></div><span class="bl-score" style="color:#ef4444">0.18</span><span class="bl-turns">5t</span></div></div>
+      </div>
+      <div class="bl-card">
+        <div class="bl-title">Asymmetric Test<span class="bl-model">70b vs 8b</span></div>
+        <div class="bl-row"><span class="bl-task">single-round-consensus</span><div class="bl-meta"><div class="score-bar"><div class="score-fill" style="width:2%;background:#22c55e"></div></div><span class="bl-score" style="color:#22c55e">0.02</span><span class="bl-turns">5t</span></div></div>
+        <div class="bl-row"><span class="bl-task">multi-round-negotiation</span><div class="bl-meta"><div class="score-bar"><div class="score-fill" style="width:18%;background:#eab308"></div></div><span class="bl-score" style="color:#eab308">0.18</span><span class="bl-turns">7t</span></div></div>
+        <div class="bl-row"><span class="bl-task">adversarial-information</span><div class="bl-meta"><div class="score-bar"><div class="score-fill" style="width:15%;background:#ef4444"></div></div><span class="bl-score" style="color:#ef4444">0.15</span><span class="bl-turns">7t</span></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div class="fl">
+      <a href="/docs">API Docs</a>
+      <a href="/tasks">Tasks JSON</a>
+      <a href="/health">Health</a>
+      <a href="https://github.com/maddycruzz/openenv-negotiation" target="_blank">GitHub</a>
+    </div>
+    <div class="fc">social-agent-negotiation-v1 · OpenEnv · Apache 2.0 · Meta × HuggingFace Hackathon</div>
+  </div>
+</footer>
+
+<script>
+// Animated demo
+const lines = document.querySelectorAll('.dl');
+let i = 0;
+function showNext() {
+  if (i < lines.length) {
+    lines[i].classList.add('show');
+    i++;
+    setTimeout(showNext, i < 3 ? 600 : i < 6 ? 800 : 700);
+  }
+}
+setTimeout(showNext, 800);
+
+// Live health check
+async function checkHealth() {
+  const dot = document.getElementById('live-dot');
+  const text = document.getElementById('live-text');
+  try {
+    const r = await fetch('/health');
+    if (r.ok) {
+      dot.style.background = 'var(--green)';
+      text.textContent = 'Live';
+    } else {
+      dot.style.background = 'var(--red)';
+      text.textContent = 'Error';
+    }
+  } catch {
+    dot.style.background = 'var(--red)';
+    text.textContent = 'Offline';
+  }
+}
+checkHealth();
+setInterval(checkHealth, 30000);
+
+// Smooth scroll
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+  a.addEventListener('click', e => {
+    e.preventDefault();
+    document.querySelector(a.getAttribute('href'))?.scrollIntoView({behavior:'smooth'});
+  });
+});
+</script>
+</body>
+</html>
