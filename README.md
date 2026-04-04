@@ -196,15 +196,27 @@ python3 baseline.py
 
 ## Baseline Results
 
-| Task | Difficulty | Model | Score | Turns Used |
-|---|---|---|---|---|
-| single-round-consensus | Easy | GPT-4o | TBD | TBD |
-| multi-round-negotiation | Medium | GPT-4o | TBD | TBD |
-| adversarial-information | Hard | GPT-4o | TBD | TBD |
+### Test 1 — Same model (llama-3.3-70b-versatile × 2)
 
-*Results will be updated after baseline run on HuggingFace Spaces.*
+| Task | Difficulty | Score | Turns | Consensus |
+|---|---|---|---|---|
+| single-round-consensus | Easy | 0.16 | 4 | ✅ Yes |
+| multi-round-negotiation | Medium | 0.16 | 4 | ✅ Yes |
+| adversarial-information | Hard | 0.18 | 5 | ✅ Yes |
+
+### Test 2 — Asymmetric (llama-3.3-70b-versatile vs llama-3.1-8b-instant)
+
+| Task | Difficulty | Score | Turns | Consensus |
+|---|---|---|---|---|
+| single-round-consensus | Easy | 0.02 | 5 | ✅ Yes |
+| multi-round-negotiation | Medium | 0.18 | 7 | ✅ Yes |
+| adversarial-information | Hard | 0.15 | 7 | ✅ Yes |
+
+*Baseline run using Groq API. To reproduce: `export GROQ_API_KEY="your-key" && python3 baseline.py`*
+*Scores are higher with GPT-4o — free tier models used for reproducibility.*
 
 ---
+
 
 ## File Structure
 ```
