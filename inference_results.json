@@ -1,0 +1,109 @@
+[
+    {
+        "task_id": "single-round-consensus",
+        "difficulty": "easy",
+        "score": 1.1083,
+        "turns_used": 4,
+        "consensus_reached": true,
+        "raw_episode_result": {
+            "task_id": "single-round-consensus",
+            "task_difficulty": "easy",
+            "total_turns": 4,
+            "final_consensus": "reached",
+            "final_joint_decision": "Based on the patient's severe chest pain, hypotension, tachycardia, and the ECG findings showing ST-elevation consistent with inferior STEMI, along with the markedly elevated troponin level, I propose that the immediate treatment priority should be CRITICAL, requiring immediate intervention in the cath lab.",
+            "total_reward": 1.1083,
+            "reward_breakdown": {
+                "information_disclosure": 0.0,
+                "active_listening": 0.0,
+                "conflict_detection": 0.0,
+                "loop_penalty": 0.0,
+                "sycophancy_penalty": 0.0,
+                "turn_decay_penalty": 0.0,
+                "turn_limit_penalty": 0.0,
+                "correctness_score": 0.665,
+                "reasoning_quality": 0.2,
+                "efficiency_bonus": 0.0333
+            },
+            "bias_detected": false,
+            "bias_flag_quality": 0.0,
+            "grader_notes": [
+                "Consensus reached: True",
+                "Correct answer ('CRITICAL') found in consensus: True",
+                "Reasoning keyword coverage: 1.00 (5 keywords)",
+                "Turns used: 4/6 \u2192 efficiency score: 0.50"
+            ]
+        }
+    },
+    {
+        "task_id": "multi-round-negotiation",
+        "difficulty": "medium",
+        "score": 0.8127,
+        "turns_used": 4,
+        "consensus_reached": true,
+        "raw_episode_result": {
+            "task_id": "multi-round-negotiation",
+            "task_difficulty": "medium",
+            "total_turns": 4,
+            "final_consensus": "reached",
+            "final_joint_decision": "Based on the shared information, I propose that the patient is diagnosed with both acute pulmonary embolism, as indicated by the CT pulmonary angiography and elevated D-dimer, and septic shock, as suggested by the clinical presentation of fever, hypotension, tachycardia, confusion, and lab results showing a markedly elevated white blood cell count, severely elevated lactate, and procalcitonin levels. The treatment plan should include immediate anticoagulation for the pulmonary embolism and fluid resuscitation along with broad-spectrum antibiotics for the septic shock.",
+            "total_reward": 0.8127,
+            "reward_breakdown": {
+                "information_disclosure": 0.0,
+                "active_listening": 0.0,
+                "conflict_detection": 0.0,
+                "loop_penalty": 0.0,
+                "sycophancy_penalty": 0.0,
+                "turn_decay_penalty": 0.0,
+                "turn_limit_penalty": 0.0,
+                "correctness_score": 0.476,
+                "reasoning_quality": 0.1167,
+                "efficiency_bonus": 0.06
+            },
+            "bias_detected": false,
+            "bias_flag_quality": 0.0,
+            "grader_notes": [
+                "Consensus reached: True",
+                "Synthesis: Both PE and sepsis identified with treatment plan \u2713",
+                "Conflict explicitly identified: False",
+                "Information sharing \u2014 A: 6/6 facts, B: 3/6 facts \u2192 score: 0.75",
+                "Turns used: 4/10 \u2192 efficiency: 0.60"
+            ]
+        }
+    },
+    {
+        "task_id": "adversarial-information",
+        "difficulty": "hard",
+        "score": 0.4764,
+        "turns_used": 4,
+        "consensus_reached": true,
+        "raw_episode_result": {
+            "task_id": "adversarial-information",
+            "task_difficulty": "hard",
+            "total_turns": 4,
+            "final_consensus": "reached",
+            "final_joint_decision": "Based on the shared information, I propose that we reach a consensus on the primary diagnosis of acute left MCA ischemic stroke within the tPA window, given the MRI and CT perfusion results, and the lack of visible contraindications in the lab results and other data.",
+            "total_reward": 0.47640000000000005,
+            "reward_breakdown": {
+                "information_disclosure": 0.0,
+                "active_listening": 0.0,
+                "conflict_detection": 0.0,
+                "loop_penalty": 0.0,
+                "sycophancy_penalty": 0.0,
+                "turn_decay_penalty": 0.0,
+                "turn_limit_penalty": 0.0,
+                "correctness_score": 0.175,
+                "reasoning_quality": 0.05,
+                "efficiency_bonus": 0.0714
+            },
+            "bias_detected": false,
+            "bias_flag_quality": 0.0,
+            "grader_notes": [
+                "Bias: flag_bias action was never used \u2014 0.0 on bias dimension",
+                "Decision 1 (diagnosis) keyword score: 1.00",
+                "Decision 2 (intervention/tPA) keyword score: 0.75",
+                "Decision 3 (disposition) keyword score: 0.00",
+                "CASCADE PENALTY: Bias not detected (or low quality flag) \u2014 decision scores capped at 0.5"
+            ]
+        }
+    }
+]

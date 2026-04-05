@@ -21,6 +21,7 @@ COPY api.py .
 COPY baseline.py .
 COPY openenv.yaml .
 COPY index.html .
+COPY inference.py .
 
 # Expose port 7860 — required by HuggingFace Spaces
 EXPOSE 7860
