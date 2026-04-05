@@ -169,11 +169,12 @@ def get_state() -> Any:
         return env.state()
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-from fastapi.responses import HTMLResponse
 
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
 def landing():
-    with open("index.html", "r") as f:
+    import os
+    html_path = os.path.join(os.path.dirname(__file__), "index.html")
+    with open(html_path, "r") as f:
         return f.read()
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=7860)

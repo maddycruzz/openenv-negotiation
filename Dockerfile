@@ -20,6 +20,7 @@ COPY rewards.py .
 COPY api.py .
 COPY baseline.py .
 COPY openenv.yaml .
+COPY index.html .
 
 # Expose port 7860 — required by HuggingFace Spaces
 EXPOSE 7860
