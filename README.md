@@ -185,36 +185,35 @@ docker build -t openenv-negotiation .
 docker run -p 7860:7860 openenv-negotiation
 ```
 
-### Run baseline
+### Run inference script
 ```bash
-export OPENAI_API_KEY="your-key-here"
-export OPENAI_MODEL="gpt-4o"        # optional, default is gpt-4o
-python3 baseline.py
+export HF_TOKEN="your-api-key"
+export API_BASE_URL="https://api.groq.com/openai/v1"   # or OpenAI, Gemini
+export MODEL_NAME="llama-3.3-70b-versatile"
+python3 inference.py
 ```
 
 ---
 
 ## Baseline Results
 
-### Test 1 — Same model (llama-3.3-70b-versatile × 2)
+### inference.py — Standard Evaluation (llama-3.3-70b-versatile)
 
 | Task | Difficulty | Score | Turns | Consensus |
 |---|---|---|---|---|
-| single-round-consensus | Easy | 0.16 | 4 | ✅ Yes |
-| multi-round-negotiation | Medium | 0.16 | 4 | ✅ Yes |
-| adversarial-information | Hard | 0.18 | 5 | ✅ Yes |
+| single-round-consensus | Easy | 1.1083 | 4 | ✅ Yes |
+| multi-round-negotiation | Medium | 0.8127 | 4 | ✅ Yes |
+| adversarial-information | Hard | 0.4764 | 4 | ✅ Yes |
 
-### Test 2 — Asymmetric (llama-3.3-70b-versatile vs llama-3.1-8b-instant)
+### Additional Tests — Asymmetric Models (70b vs 8b)
 
 | Task | Difficulty | Score | Turns | Consensus |
 |---|---|---|---|---|
-| single-round-consensus | Easy | 0.02 | 5 | ✅ Yes |
-| multi-round-negotiation | Medium | 0.18 | 7 | ✅ Yes |
-| adversarial-information | Hard | 0.15 | 7 | ✅ Yes |
+| single-round-consensus | Easy | 0.826 | 5 | ✅ Yes |
+| multi-round-negotiation | Medium | 0.771 | 7 | ✅ Yes |
+| adversarial-information | Hard | 0.473 | 7 | ✅ Yes |
 
-*Baseline run using Groq API. To reproduce: `export GROQ_API_KEY="your-key" && python3 baseline.py`*
-*Scores are higher with GPT-4o — free tier models used for reproducibility.*
-
+*To reproduce: set HF_TOKEN, API_BASE_URL, MODEL_NAME then run `python3 inference.py`*
 ---
 
 
@@ -227,7 +226,8 @@ openenv-negotiation/
 ├── graders.py          # Deterministic scoring functions
 ├── rewards.py          # Step and episode reward logic
 ├── api.py              # FastAPI HTTP wrapper
-├── baseline.py         # GPT-4o baseline inference script
+├── baseline.py         # Multi-provider baseline (interactive)
+├── inference.py        # Hackathon-spec inference script
 ├── openenv.yaml        # OpenEnv metadata
 ├── Dockerfile          # HuggingFace Spaces container
 ├── requirements.txt    # Python dependencies
