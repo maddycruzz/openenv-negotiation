@@ -110,7 +110,7 @@ def run_episode(task_id: str) -> Tuple[Optional[Dict[str, Any]], int]:
     """
     Runs a single episode for a given task_id by coordinating Agent A and Agent B sequentially.
     """
-    print(f"\n--- Starting Episode for Task: {task_id} ---")
+    print(f"[START] task_id={task_id}")
     
     try:
         # Reset the environment
@@ -144,11 +144,11 @@ def run_episode(task_id: str) -> Tuple[Optional[Dict[str, Any]], int]:
             active_id = "agent_b"
             obs = obs_b
             
-        print(f"Turn {turn_count}: {active_id} is thinking...")
+        print(f"[STEP] turn={turn_count} agent={active_id} thinking...")
         
         # Get action from the LLM
         action = generate_agent_action(active_id, obs)
-        print(f"  -> {active_id} decided to: {action.get('action_type')}")
+        print(f"[STEP] turn={turn_count} agent={active_id} action={action.get('action_type')}")
         
         try:
             # Step the environment
@@ -169,7 +169,7 @@ def run_episode(task_id: str) -> Tuple[Optional[Dict[str, Any]], int]:
             
             if done:
                 final_result = step_data.get("episode_result", {})
-                print(f"Episode completed at turn {turn_count}.")
+                print(f"[END] task_id={task_id} turns={turn_count}\n")
                 break
                 
         except Exception as e:
@@ -235,7 +235,6 @@ def main():
     print(f"{'Task ID':<25} | {'Difficulty':<12} | {'Score':<8} | {'Turns':<8} | {'Consensus'}")
     print("-" * 75)
     for r in results:
-        print(f"{str(r['task_id'])[:24]:<25} | {r['difficulty']:<12} | {str(r['score']):<8} | {str(r['turns_used']):<8} | {'Yes' if r['consensus_reached'] else 'No'}")
-
+        print(f"[END] task_id={r['task_id']} |score={r['score']} |consensus={r['consensus_reached']}")
 if __name__ == "__main__":
     main()
