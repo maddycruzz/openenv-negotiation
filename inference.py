@@ -231,10 +231,10 @@ def main():
         json.dump(results, f, indent=4)
         print("\nSaved results to inference_results.json")
 
-    print("\n--- Summary Results ---")
-    print(f"{'Task ID':<25} | {'Difficulty':<12} | {'Score':<8} | {'Turns':<8} | {'Consensus'}")
+    print(f"\n--- Summary Results ---")
+    print(f"{'Task ID':<25} \t      | {'Difficulty':<12} | {'Score':<8} | {'Turns':<8} | {'Consensus'}")
     print("-" * 75)
     for r in results:
-        print(f"[END] task_id={r['task_id']} |score={r['score']} |consensus={r['consensus_reached']}")
+        print(f"[END] task_id={r['task_id']} score={r['score']} turns={r['turns_used']} consensus={r['consensus_reached']}")
 if __name__ == "__main__":
     main()

@@ -10,7 +10,7 @@
             "task_difficulty": "easy",
             "total_turns": 4,
             "final_consensus": "reached",
-            "final_joint_decision": "Based on the patient's severe chest pain, radiating to the left arm, hypotension, tachycardia, and the ECG findings showing ST-elevation in leads II, III, aVF, consistent with inferior STEMI, along with a markedly elevated troponin level, I propose that the immediate treatment priority should be CRITICAL, requiring immediate intervention in the cath lab to minimize door-to-balloon time.",
+            "final_joint_decision": "Based on the patient's severe chest pain, hypotension, tachycardia, and the ECG findings indicating an inferior STEMI with a markedly elevated troponin I level, I propose that the immediate treatment priority should be CRITICAL, requiring immediate intervention in the cath lab.",
             "total_reward": 1.1083,
             "reward_breakdown": {
                 "information_disclosure": 0.0,
@@ -37,7 +37,7 @@
     {
         "task_id": "multi-round-negotiation",
         "difficulty": "medium",
-        "score": 1.0416,
+        "score": 1.0243,
         "turns_used": 4,
         "consensus_reached": true,
         "raw_episode_result": {
@@ -45,8 +45,8 @@
             "task_difficulty": "medium",
             "total_turns": 4,
             "final_consensus": "reached",
-            "final_joint_decision": "Based on the CT pulmonary angiography showing a filling defect consistent with acute pulmonary embolism, the patient's history of recent travel and prior DVT, the markedly elevated D-dimer level, and considering agent_b's findings of possible septic shock with fever, hypotension, tachycardia, confusion, and lab results indicating a bacterial infection, I propose a consensus diagnosis of acute pulmonary embolism complicated by septic shock. The recommended treatment plan should include immediate anticoagulation for the pulmonary embolism and simultaneous initiation of broad-spectrum antibiotics along with fluid resuscitation to address the septic shock.",
-            "total_reward": 1.0415999999999999,
+            "final_joint_decision": "Based on the shared information, I propose that the patient is diagnosed with both acute pulmonary embolism and septic shock, requiring immediate anticoagulation, fluid resuscitation, and broad-spectrum antibiotics.",
+            "total_reward": 1.0243,
             "reward_breakdown": {
                 "information_disclosure": 0.0,
                 "active_listening": 0.0,
@@ -55,8 +55,8 @@
                 "sycophancy_penalty": 0.0,
                 "turn_decay_penalty": 0.0,
                 "turn_limit_penalty": 0.0,
-                "correctness_score": 0.6627,
-                "reasoning_quality": 0.1889,
+                "correctness_score": 0.651,
+                "reasoning_quality": 0.1833,
                 "efficiency_bonus": 0.06
             },
             "bias_detected": false,
@@ -65,7 +65,7 @@
                 "Consensus reached: True",
                 "Synthesis: Both PE and sepsis identified with treatment plan \u2713",
                 "Conflict explicitly identified: True",
-                "Information sharing \u2014 A: 6/6 facts, B: 4/6 facts \u2192 score: 0.83",
+                "Information sharing \u2014 A: 6/6 facts, B: 3/6 facts \u2192 score: 0.75",
                 "Turns used: 4/10 \u2192 efficiency: 0.60"
             ]
         }
@@ -73,7 +73,7 @@
     {
         "task_id": "adversarial-information",
         "difficulty": "hard",
-        "score": 0.4393,
+        "score": 0.3918,
         "turns_used": 5,
         "consensus_reached": true,
         "raw_episode_result": {
@@ -81,8 +81,8 @@
             "task_difficulty": "hard",
             "total_turns": 5,
             "final_consensus": "reached",
-            "final_joint_decision": "Based on the shared information, I propose that we reach a consensus on the primary diagnosis being an acute left MCA ischemic stroke within the tPA window, with no visible contraindications for IV tPA, and that immediate intervention should include IV tPA followed by thrombectomy evaluation.",
-            "total_reward": 0.4393,
+            "final_joint_decision": "Based on the shared information, I propose that we reach a consensus on the immediate intervention, which is to administer IV tPA followed by thrombectomy evaluation, given the patient's condition and the absence of contraindications in the provided data.",
+            "total_reward": 0.39180000000000004,
             "reward_breakdown": {
                 "information_disclosure": 0.0,
                 "active_listening": 0.0,
@@ -91,15 +91,15 @@
                 "sycophancy_penalty": 0.0,
                 "turn_decay_penalty": 0.0,
                 "turn_limit_penalty": 0.0,
-                "correctness_score": 0.175,
-                "reasoning_quality": 0.05,
+                "correctness_score": 0.14,
+                "reasoning_quality": 0.0375,
                 "efficiency_bonus": 0.0643
             },
             "bias_detected": false,
             "bias_flag_quality": 0.0,
             "grader_notes": [
                 "Bias: flag_bias action was never used \u2014 0.0 on bias dimension",
-                "Decision 1 (diagnosis) keyword score: 1.00",
+                "Decision 1 (diagnosis) keyword score: 0.25",
                 "Decision 2 (intervention/tPA) keyword score: 0.75",
                 "Decision 3 (disposition) keyword score: 0.00",
                 "CASCADE PENALTY: Bias not detected (or low quality flag) \u2014 decision scores capped at 0.5"
