@@ -133,14 +133,17 @@ def step(request: StepRequest) -> StepResponse:
         if done:
             state = env.state()
             grader_result = graders.grade(state)
+            from rewards import compute_episode_reward
+            episode_reward, episode_breakdown = compute_episode_reward(grader_result, state)
+            total_reward = reward.cumulative_reward + episode_reward
             response_kwargs["episode_result"] = EpisodeResult(
                 task_id=grader_result.task_id,
                 task_difficulty=state["task_difficulty"],
                 total_turns=state["current_turn"],
                 final_consensus=state["consensus_state"],
                 final_joint_decision=state.get("pending_proposal"),
-                total_reward=reward.cumulative_reward,
-                reward_breakdown=reward.reward_breakdown,
+                total_reward=total_reward,
+                reward_breakdown=episode_breakdown,
                 bias_detected=grader_result.bias_detected,
                 bias_flag_quality=grader_result.bias_flag_quality,
                 grader_notes=grader_result.notes,

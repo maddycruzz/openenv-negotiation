@@ -1,3 +1,5 @@
+from dotenv import load_dotenv
+load_dotenv()
 import os
 import sys
 import json
@@ -302,7 +304,7 @@ def main():
         
         if episode_result:
             # Attempt to extract common fields expected from an EpisodeResult object
-            score = episode_result.get("total_reward", episode_result.get("final_score", 0))
+            score = round(episode_result.get("total_reward", 0), 4)
             consensus_reached = episode_result.get("final_consensus") == "reached"
             
         # Record result
