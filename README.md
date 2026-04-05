@@ -30,6 +30,12 @@ This environment directly benchmarks the collaborative reasoning capabilities st
 
 ---
 
+## Meta FAIR Alignment
+
+This environment directly addresses the open research problem identified in Meta FAIR's Collaborative Reasoner project — that *"current models can't consistently utilize collaboration to achieve better task performance."* While Meta is building the collaborative agent, this environment provides the open benchmark to train and evaluate it. This is the test track for Meta's car — analogous to how HumanEval became essential infrastructure for code generation research.
+
+---
+
 ## Tasks
 
 ### Task 1 — Single Round Consensus (Easy)
@@ -236,10 +242,27 @@ openenv-negotiation/
 
 ---
 
+# Citation
+
+If you use this environment in your research, please cite:
+
+@misc{social-agent-negotiation-2026,
+  title={Social Agent Collaboration Negotiation Environment},
+  author={Bharath},
+  year={2026},
+  publisher={HuggingFace Spaces},
+  url={https://huggingface.co/spaces/Bharath-1608/social-agent-negotiation-v1}
+}
+
+---
+
 ## Design Notes
+
+**Multi-agent step() signature:** This environment returns `(obs_agent_a, obs_agent_b, reward)` from `step()` — two observations instead of one. This is a deliberate design decision for multi-agent environments where each agent requires a separate observation with isolated private information. Standard single-agent OpenEnv returns one observation; our extension returns one per agent.
 
 **Why medical scenarios?** High-stakes decisions with objectively correct answers, natural information asymmetry between specialists, and immediately understandable stakes for any judge.
 
 **Why `flag_bias` requires structured reasoning?** Pressing the button alone scores near zero. The grader evaluates the quality of `bias_location`, `bias_direction`, and `bias_correction` independently — agents must reason through the bias, not just detect it.
 
 **Why the cascade penalty?** Task 3 is designed to test bias detection, not just correct answers. An agent that reaches the right answer without detecting the bias may have gotten lucky. The cascade cap ensures bias detection is genuinely required for full marks.
+

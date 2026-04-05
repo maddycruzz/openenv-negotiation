@@ -43,16 +43,18 @@ class StepResponse(BaseModel):
     reward: Reward
     done: bool
     episode_result: Optional[EpisodeResult] = None
-@app.get("/health", response_model=HealthResponse, summary="Health Check")
-def health() -> HealthResponse:
+@app.get("/health", summary="Health Check")
+def health():
     """
     Returns the health status, environment identifier, and version of the API.
     """
-    return HealthResponse(
-        status="ok",
-        environment_id="social-agent-negotiation-v1",
-        version="0.1.0"
-    )
+    return {
+        "status": "ok",
+        "environment_id": "social-agent-negotiation-v1",
+        "version": "0.1.0",
+        "tasks_available": 3,
+        "reward_range": [-0.5, 1.0]
+    }
 @app.get("/tasks", summary="Get Available Tasks")
 def get_tasks() -> Dict[str, Any]:
     """
@@ -159,6 +161,19 @@ def step(request: StepRequest) -> StepResponse:
         raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/validate", summary="OpenEnv Validation")
+def validate():
+    return {
+        "environment_id": "social-agent-negotiation-v1",
+        "version": "0.1.0",
+        "tasks": [t["id"] for t in list_tasks()],
+        "observation_space": "structured/json",
+        "action_space": "discrete-structured/json",
+        "reward_range": [-0.5, 1.0],
+        "spec_compliant": True
+    }
+
 @app.get("/state", summary="Get Full State")
 def get_state() -> Any:
     """

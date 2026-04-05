@@ -1,6 +1,10 @@
 id: social-agent-negotiation-v1
 name: Social Agent Collaboration Negotiation
 version: 0.1.0
+author: Bharath
+contact: github.com/maddycruzz
+repository: https://github.com/maddycruzz/openenv-negotiation
+space: https://huggingface.co/spaces/Bharath-1608/social-agent-negotiation-v1
 description: >
   A multi-agent environment where two AI agents with asymmetric
   information must negotiate, disagree constructively, and reach
