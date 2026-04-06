@@ -30,7 +30,7 @@ class HealthResponse(BaseModel):
     environment_id: str
     version: str
 class ResetRequest(BaseModel):
-    task_id: str
+    task_id: str = "single-round-consensus"
 class ResetResponse(BaseModel):
     obs_agent_a: Observation
     obs_agent_b: Observation
@@ -80,7 +80,9 @@ def get_tasks() -> Dict[str, Any]:
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 @app.post("/reset", response_model=ResetResponse, summary="Reset Environment")
-def reset(request: ResetRequest) -> ResetResponse:
+def reset(request: ResetRequest = None) -> ResetResponse:
+    if request is None:
+        request = ResetRequest()
     """
     Creates a new NegotiationEnvironment with the requested task.
     Returns the initial observations for both agents and the task_id.
