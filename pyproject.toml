@@ -1,15 +1,10 @@
-[build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.backends.legacy:build"
-
 [project]
 name = "social-agent-negotiation"
 version = "0.1.0"
-description = "A multi-agent OpenEnv environment for collaborative reasoning evaluation"
-readme = "README.md"
-license = {text = "Apache-2.0"}
+description = "Multi-agent negotiation environment for OpenEnv"
 requires-python = ">=3.11"
 dependencies = [
+    "openenv-core>=0.2.0",
     "fastapi>=0.100.0",
     "uvicorn>=0.20.0",
     "pydantic>=2.0.0",
@@ -18,6 +13,9 @@ dependencies = [
     "python-dotenv>=1.0.0",
 ]
 
-[project.urls]
-Homepage = "https://huggingface.co/spaces/Bharath-1608/social-agent-negotiation-v1"
-Repository = "https://github.com/maddycruzz/openenv-negotiation"
+[project.scripts]
+server = "server.app:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
