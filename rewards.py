@@ -362,7 +362,7 @@ def compute_step_reward(
     )
 
     # Clamp step reward to prevent catastrophic single-turn scores
-    step_reward = round(max(-0.5, min(0.3, step_reward)), 4)
+    step_reward = round(max(-0.49, min(0.29, step_reward)), 4)
 
     return step_reward, breakdown
 
@@ -410,6 +410,6 @@ def compute_episode_reward(
     )
 
     episode_reward = correctness + reasoning + efficiency
-    episode_reward = round(min(1.0, max(0.0, episode_reward)), 4)
+    episode_reward = round(min(0.99, max(0.01, episode_reward)), 4)
 
     return episode_reward, breakdown
