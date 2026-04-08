@@ -299,12 +299,12 @@ def main():
         episode_result, turns_used = run_episode(task_id)
         
         # Default metrics in case episode failed
-        score = 0
+        score = 0.01
         consensus_reached = False
         
         if episode_result:
             # Attempt to extract common fields expected from an EpisodeResult object
-            score = round(episode_result.get("total_reward", 0), 4)
+            score = round(max(0.01, min(0.99, episode_result.get("total_reward", 0.01))), 4)
             consensus_reached = episode_result.get("final_consensus") == "reached"
             
         # Record result

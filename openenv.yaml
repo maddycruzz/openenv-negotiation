@@ -28,5 +28,5 @@ observation_space:
 action_space:
   type: discrete-structured
   format: json
-reward_range: [-0.5, 1.0]
+reward_range: [0.01, 0.99]
 license: Apache-2.0

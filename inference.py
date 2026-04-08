@@ -169,7 +169,7 @@ def run_episode(task_id: str) -> Tuple[Optional[Dict[str, Any]], int]:
             
             if done:
                 final_result = step_data.get("episode_result", {})
-                print(f"[END] task_id={task_id} turns={turn_count}\n")
+                print(f"Episode completed at turn {turn_count}.\n")
                 break
                 
         except Exception as e:
@@ -258,6 +258,6 @@ def main():
     print(f"{'Task ID':<25} \t      | {'Difficulty':<12} | {'Score':<8} | {'Turns':<8} | {'Consensus'}")
     print("-" * 75)
     for r in results:
-        print(f"[END] task_id={r['task_id']} score={r['score']} turns={r['turns_used']} consensus={r['consensus_reached']}")
+        print(f"[END] task_id={r['task_id']} score={r['score']:.4f} turns={r['turns_used']} consensus={r['consensus_reached']}")
 if __name__ == "__main__":
     main()

@@ -53,7 +53,7 @@ def health():
         "environment_id": "social-agent-negotiation-v1",
         "version": "0.1.0",
         "tasks_available": 3,
-        "reward_range": [-0.5, 1.0]
+        "reward_range": [0.01, 0.99]
     }
 @app.get("/tasks", summary="Get Available Tasks")
 def get_tasks() -> Dict[str, Any]:
@@ -172,7 +172,7 @@ def validate():
         "tasks": [t["id"] for t in list_tasks()],
         "observation_space": "structured/json",
         "action_space": "discrete-structured/json",
-        "reward_range": [-0.5, 1.0],
+        "reward_range": [0.01, 0.99],
         "spec_compliant": True
     }
 
