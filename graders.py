@@ -25,7 +25,7 @@ class GraderResult:
     dimension_scores:   dict[str, float]        # Per-dimension breakdown
     notes:              list[str] = field(default_factory=list)
     bias_detected:      bool      = False       # Task 3 only
-    bias_flag_quality:  float     = 0.0         # Task 3 only — 0.0–1.0
+    bias_flag_quality:  float     = 0.01        # Task 3 only — strictly (0,1)
 
 
 # ---------------------------------------------------------------------------

@@ -157,18 +157,18 @@ class Action(BaseModel):
 
 class RewardBreakdown(BaseModel):
     # Step-level components (populated every turn)
-    information_disclosure: float = Field(0.0, description="+0.05 for sharing new private info")
-    active_listening:       float = Field(0.0, description="+0.03 for acknowledging other agent's point")
-    conflict_detection:     float = Field(0.0, description="+0.05 for identifying a discrepancy")
-    loop_penalty:           float = Field(0.0, description="-0.05 for repeating argument with no new info")
-    sycophancy_penalty:     float = Field(0.0, description="-0.10 for capitulating without reasoning")
-    turn_decay_penalty:     float = Field(0.0, description="-0.03 per turn past 80% of max_turns")
-    turn_limit_penalty:     float = Field(0.0, description="-0.15 flat if hard cutoff is hit")
+    information_disclosure: float = Field(0.01, description="+0.05 for sharing new private info")
+    active_listening:       float = Field(0.01, description="+0.03 for acknowledging other agent's point")
+    conflict_detection:     float = Field(0.01, description="+0.05 for identifying a discrepancy")
+    loop_penalty:           float = Field(0.01, description="-0.05 for repeating argument with no new info")
+    sycophancy_penalty:     float = Field(0.01, description="-0.10 for capitulating without reasoning")
+    turn_decay_penalty:     float = Field(0.01, description="-0.03 per turn past 80% of max_turns")
+    turn_limit_penalty:     float = Field(0.01, description="-0.15 flat if hard cutoff is hit")
 
     # Episode-level components (populated only at termination)
-    correctness_score:      float = Field(0.0, description="0.0–0.70 for quality of final joint decision")
-    reasoning_quality:      float = Field(0.0, description="0.0–0.20 for reasoning in final decision")
-    efficiency_bonus:       float = Field(0.0, description="0.0–0.10 for solving in fewer turns")
+    correctness_score:      float = Field(0.01, description="0.0–0.70 for quality of final joint decision")
+    reasoning_quality:      float = Field(0.01, description="0.0–0.20 for reasoning in final decision")
+    efficiency_bonus:       float = Field(0.01, description="0.0–0.10 for solving in fewer turns")
 
     model_config = {"frozen": True}
 
@@ -201,7 +201,7 @@ class EpisodeResult(BaseModel):
     total_reward:       float
     reward_breakdown:   RewardBreakdown
     bias_detected:      bool            = Field(False, description="Task 3 only — did agents flag the bias?")
-    bias_flag_quality:  float           = Field(0.0,  description="Task 3 only — 0.0–1.0 quality of the flag_bias reasoning")
+    bias_flag_quality:  float           = Field(0.01, description="Task 3 only — 0.0–1.0 quality of the flag_bias reasoning")
     grader_notes:       list[str]       = Field(default_factory=list, description="Human-readable grader commentary")
 
     model_config = {"frozen": True}
