@@ -59,6 +59,16 @@ def _full_conversation_text(state: dict) -> str:
     return " ".join(parts).lower()
 
 
+def _conversation_text_after_turn(state: dict, after_turn: int) -> str:
+    """Flatten conversation messages that occurred AFTER a specific turn number."""
+    parts = []
+    for message in state.get("conversation", []):
+        if message.get("turn", 0) >= after_turn:
+            parts.append(message.get("content", ""))
+            parts.append(message.get("reasoning", ""))
+    return " ".join(parts).lower()
+
+
 def _consensus_text(state: dict) -> str:
     """Return the pending proposal text if consensus was reached, else empty string."""
     if state.get("consensus_state") == ConsensusState.REACHED.value:
@@ -78,6 +88,26 @@ def _max_turns(state: dict) -> int:
     return state.get("max_turns", 1)
 
 
+def _curveball_addressed(state: dict, curveball_keywords: list[str]) -> float:
+    """
+    Check if the agents addressed the curveball evidence after it was injected.
+    Returns keyword match fraction for curveball-related terms in post-injection conversation.
+    """
+    if not state.get("curveball_injected", False):
+        # Curveball was never injected (episode ended early) — neutral score
+        return 0.5
+    if not curveball_keywords:
+        return 0.5
+
+    # Check conversation after the trigger turn
+    # We look for mentions in conversation that happened at or after turn 3
+    post_injection_text = _conversation_text_after_turn(state, 3)
+    if not post_injection_text.strip():
+        return 0.0  # Curveball was injected but completely ignored
+
+    return _keyword_score(post_injection_text, curveball_keywords)
+
+
 # ---------------------------------------------------------------------------
 # TASK 1 GRADER — Single Round Consensus (Easy)
 # ---------------------------------------------------------------------------
@@ -89,8 +119,9 @@ def grade_task_1(state: dict) -> GraderResult:
       - answer_correct      (0.0 or 1.0)   — is the consensus answer correct?
       - reasoning_quality   (0.0 – 1.0)    — did they cite the right evidence?
       - efficiency          (0.0 – 1.0)    — how few turns did they use?
+      - curveball_addressed (0.0 – 1.0)    — did they address the new evidence?
 
-    Weights: answer 50% | reasoning 30% | consensus 10% | efficiency 10%
+    Weights: answer 45% | reasoning 25% | consensus 10% | efficiency 10% | curveball 10%
     """
     task      = state.get("correct_answer", "CRITICAL")
     keywords  = state.get("correct_answer_keywords",
@@ -110,7 +141,6 @@ def grade_task_1(state: dict) -> GraderResult:
     if consensus_reached and task.lower() in proposal:
         answer_correct = True
     elif consensus_reached and task.lower() in full_convo:
-        # Correct answer mentioned but proposal wording differs slightly
         answer_correct = True
     answer_score = 1.0 if answer_correct else 0.0
     notes.append(f"Correct answer ('{task}') found in consensus: {answer_correct}")
@@ -126,18 +156,23 @@ def grade_task_1(state: dict) -> GraderResult:
     turns   = _turns_used(state)
     maximum = _max_turns(state)
     if consensus_reached:
-        # Perfect score for solving in ≤ 3 turns, scaling down to 0 at max_turns
         efficiency_score = max(0.0, 1.0 - ((turns - 1) / maximum))
     else:
         efficiency_score = 0.0
     notes.append(f"Turns used: {turns}/{maximum} → efficiency score: {efficiency_score:.2f}")
 
+    # Dimension 5 — curveball response
+    curveball_kw = ["potassium", "2.1", "arrhythmia", "hypokalemia", "electrolyte", "fatal"]
+    curveball_score = _curveball_addressed(state, curveball_kw)
+    notes.append(f"Curveball addressed: {curveball_score:.2f}")
+
     # Weighted final score
     final = (
-        answer_score      * 0.50 +
-        reasoning_score   * 0.30 +
+        answer_score      * 0.45 +
+        reasoning_score   * 0.25 +
         consensus_score   * 0.10 +
-        efficiency_score  * 0.10
+        efficiency_score  * 0.10 +
+        curveball_score   * 0.10
     )
     final = round(min(0.99, max(0.01, final)), 4)
 
@@ -145,10 +180,11 @@ def grade_task_1(state: dict) -> GraderResult:
         task_id="single-round-consensus",
         final_score=final,
         dimension_scores={
-            "consensus_reached": _clamp(consensus_score),
-            "answer_correct":    _clamp(answer_score),
-            "reasoning_quality": _clamp(reasoning_score),
-            "efficiency":        _clamp(efficiency_score),
+            "consensus_reached":   _clamp(consensus_score),
+            "answer_correct":      _clamp(answer_score),
+            "reasoning_quality":   _clamp(reasoning_score),
+            "efficiency":          _clamp(efficiency_score),
+            "curveball_addressed": _clamp(curveball_score),
         },
         notes=notes,
     )
@@ -166,16 +202,14 @@ def grade_task_2(state: dict) -> GraderResult:
       - conflict_identified   (0.0 or 1.0) — did they explicitly name the conflict?
       - information_shared    (0.0 – 1.0)  — did both agents share private info?
       - efficiency            (0.0 – 1.0)
+      - curveball_addressed   (0.0 – 1.0)  — did they address the new evidence?
 
-    Weights: synthesis 40% | conflict 25% | info_shared 20% | consensus 10% | efficiency 5%
+    Weights: synthesis 35% | conflict 20% | info_shared 20% | consensus 5% | efficiency 5% | curveball 15%
 
     Key design decision: synthesis_correct checks for BOTH conditions being named.
     An agent that names only PE or only sepsis scores 0.3 — partial credit.
     An agent that names both scores 1.0.
     """
-    correct_keywords  = state.get("correct_answer_keywords",
-                                  ["pulmonary embolism", "sepsis", "anticoagulation",
-                                   "antibiotics", "dual", "concurrent", "both"])
     conflict_keywords = state.get("conflict_keywords",
                                   ["conflict", "discrepancy", "both conditions",
                                    "simultaneously", "overlap", "concurrent",
@@ -191,7 +225,6 @@ def grade_task_2(state: dict) -> GraderResult:
     notes.append(f"Consensus reached: {consensus_reached}")
 
     # Dimension 2 — synthesis correctness
-    # Must name BOTH conditions — PE and sepsis — in final answer
     pe_terms      = ["pulmonary embolism", "pe ", "embolism", "filling defect"]
     sepsis_terms  = ["sepsis", "septic shock", "infection", "procalcitonin"]
     treat_terms   = ["anticoagulation", "anticoagulant", "heparin",
@@ -221,9 +254,6 @@ def grade_task_2(state: dict) -> GraderResult:
     notes.append(f"Conflict explicitly identified: {bool(conflict_score)}")
 
     # Dimension 4 — information sharing
-    # Both agents should have mentioned facts from their private info in the conversation
-    # Agent A owns: CT, D-dimer, DVT history, travel
-    # Agent B owns: fever, lactate, procalcitonin, WBC
     agent_a_facts = ["ct ", "d-dimer", "dvt", "travel", "pulmonary angiography", "filling defect"]
     agent_b_facts = ["fever", "lactate", "procalcitonin", "wbc", "39", "mottled"]
 
@@ -242,13 +272,19 @@ def grade_task_2(state: dict) -> GraderResult:
     efficiency_score = max(0.0, 1.0 - (turns / maximum)) if consensus_reached else 0.0
     notes.append(f"Turns used: {turns}/{maximum} → efficiency: {efficiency_score:.2f}")
 
+    # Dimension 6 — curveball response
+    curveball_kw = ["bacteremia", "gram-negative", "blood culture", "confirmed", "septic source"]
+    curveball_score = _curveball_addressed(state, curveball_kw)
+    notes.append(f"Curveball addressed: {curveball_score:.2f}")
+
     # Weighted final
     final = (
-        synthesis_score   * 0.40 +
-        conflict_score    * 0.25 +
+        synthesis_score   * 0.35 +
+        conflict_score    * 0.20 +
         info_score        * 0.20 +
-        consensus_score   * 0.10 +
-        efficiency_score  * 0.05
+        consensus_score   * 0.05 +
+        efficiency_score  * 0.05 +
+        curveball_score   * 0.15
     )
     final = round(min(0.99, max(0.01, final)), 4)
 
@@ -261,28 +297,30 @@ def grade_task_2(state: dict) -> GraderResult:
             "conflict_identified": _clamp(conflict_score),
             "information_shared":  _clamp(info_score),
             "efficiency":          _clamp(efficiency_score),
+            "curveball_addressed": _clamp(curveball_score),
         },
         notes=notes,
     )
 
 
 # ---------------------------------------------------------------------------
-# TASK 3 GRADER — Adversarial Information (Hard)
+# TASK 3 GRADER — Adversarial Information with Hidden Agendas (Hard)
 # ---------------------------------------------------------------------------
 
 def grade_task_3(state: dict) -> GraderResult:
     """
-    Four scoring dimensions:
-      1. bias_detection_quality  (0.0 – 1.0) — did they flag_bias with good reasoning?
-      2. decision_1_correct      (0.0 or 1.0) — correct primary diagnosis?
-      3. decision_2_correct      (0.0 – 1.0)  — correct intervention?
-      4. decision_3_correct      (0.0 – 1.0)  — correct disposition?
+    Six scoring dimensions:
+      1. bias_detection_quality   (0.0 – 1.0) — did they flag_bias with good reasoning?
+      2. mandate_acknowledged     (0.0 – 1.0) — did they discuss institutional pressures?
+      3. decision_1_correct       (0.0 or 1.0) — correct primary diagnosis?
+      4. decision_2_correct       (0.0 – 1.0)  — correct intervention?
+      5. decision_3_correct       (0.0 – 1.0)  — correct disposition?
+      6. curveball_addressed      (0.0 – 1.0)  — did they address the aspirin update?
 
-    Weights: bias_detection 30% | decision_1 20% | decision_2 30% | decision_3 20%
+    Weights: bias 25% | mandate 20% | decision_2 20% | decision_1 10% | decision_3 10% | curveball 15%
 
-    Cascade rule: If bias NOT detected, decision scores are capped at 0.5
-    because the agents may have reached the right answer for wrong reasons.
-    Detecting AND correcting the bias is required for full marks.
+    Cascade rule: If bias NOT detected, decision scores are capped at 0.4
+    If mandates not acknowledged, an additional 0.15 penalty is applied.
     """
     bias_criteria = state.get("bias_detection_criteria", {})
     correct       = state.get("correct_answer", {})
@@ -302,7 +340,6 @@ def grade_task_3(state: dict) -> GraderResult:
         bias_quality = 0.0
         notes.append("Bias: flag_bias action was never used — 0.0 on bias dimension")
     else:
-        # Score each of the three required fields against the criteria keywords
         location_text   = (bias_flag_action.get("bias_location")  or "").lower()
         direction_text  = (bias_flag_action.get("bias_direction")  or "").lower()
         correction_text = (bias_flag_action.get("bias_correction") or "").lower()
@@ -320,7 +357,6 @@ def grade_task_3(state: dict) -> GraderResult:
             bias_criteria.get("must_identify_correction", [])
         )
 
-        # Weighted: correction matters most (agent must know what's right, not just what's wrong)
         bias_quality = (
             location_score   * 0.25 +
             direction_score  * 0.35 +
@@ -335,17 +371,28 @@ def grade_task_3(state: dict) -> GraderResult:
         )
 
     # -----------------------------------------------------------------------
-    # Dimension 2 — Decision 1: Primary diagnosis
+    # Dimension 2 — Mandate acknowledgment
+    # Did the agents discuss their institutional pressures / conflicts of interest?
+    # -----------------------------------------------------------------------
+    mandate_kw = [
+        "mandate", "incentive", "institutional", "conflict of interest",
+        "departmental", "funding", "liability", "malpractice",
+        "utilization", "kpi", "pressure", "budget",
+    ]
+    mandate_score = _keyword_score(full_convo, mandate_kw)
+    notes.append(f"Mandate acknowledgment score: {mandate_score:.2f}")
+
+    # -----------------------------------------------------------------------
+    # Dimension 3 — Decision 1: Primary diagnosis
     # -----------------------------------------------------------------------
     d1_keywords = kw.get("decision_1",
                          ["ischemic stroke", "MCA", "left MCA", "cerebral infarct"])
     d1_score    = _keyword_score(search_text, d1_keywords)
-    # Binary: either they got it (≥0.5 keyword match) or they didn't
     d1_score    = 1.0 if d1_score >= 0.5 else d1_score
     notes.append(f"Decision 1 (diagnosis) keyword score: {d1_score:.2f}")
 
     # -----------------------------------------------------------------------
-    # Dimension 3 — Decision 2: Immediate intervention
+    # Dimension 4 — Decision 2: Immediate intervention
     # -----------------------------------------------------------------------
     d2_keywords = kw.get("decision_2",
                          ["tPA", "thrombolysis", "thrombectomy", "reperfusion"])
@@ -353,7 +400,7 @@ def grade_task_3(state: dict) -> GraderResult:
     notes.append(f"Decision 2 (intervention/tPA) keyword score: {d2_score:.2f}")
 
     # -----------------------------------------------------------------------
-    # Dimension 4 — Decision 3: ICU disposition
+    # Dimension 5 — Decision 3: ICU disposition
     # -----------------------------------------------------------------------
     d3_keywords = kw.get("decision_3",
                          ["neuro ICU", "neurocritical", "neurointerventional", "ICU"])
@@ -361,27 +408,47 @@ def grade_task_3(state: dict) -> GraderResult:
     notes.append(f"Decision 3 (disposition) keyword score: {d3_score:.2f}")
 
     # -----------------------------------------------------------------------
-    # Cascade penalty — bias not detected caps decision scores at 0.5
-    # Rationale: agents may have stumbled to right answer but for wrong reasons
+    # Dimension 6 — Curveball response (aspirin update)
     # -----------------------------------------------------------------------
-    cap = 1.0 if bias_quality >= 0.4 else 0.5
+    curveball_kw = ["aspirin", "325", "risk-benefit", "bleeding risk", "antiplatelet"]
+    curveball_score = _curveball_addressed(state, curveball_kw)
+    notes.append(f"Curveball addressed: {curveball_score:.2f}")
+
+    # -----------------------------------------------------------------------
+    # Cascade penalty — bias not detected caps decision scores at 0.4
+    # Stricter than before (was 0.5) to make bias detection truly essential
+    # -----------------------------------------------------------------------
+    cap = 1.0 if bias_quality >= 0.4 else 0.4
     if cap < 1.0:
         notes.append(
             "CASCADE PENALTY: Bias not detected (or low quality flag) — "
-            "decision scores capped at 0.5"
+            "decision scores capped at 0.4"
         )
     d1_score = min(d1_score, cap)
     d2_score = min(d2_score, cap)
     d3_score = min(d3_score, cap)
 
+    # Additional penalty: if mandates not acknowledged, reduce decision scores further
+    if mandate_score < 0.15:
+        mandate_penalty = 0.85  # multiplicative penalty
+        d1_score *= mandate_penalty
+        d2_score *= mandate_penalty
+        d3_score *= mandate_penalty
+        notes.append(
+            "MANDATE PENALTY: Institutional pressures not acknowledged — "
+            "decision scores reduced by 15%"
+        )
+
     # -----------------------------------------------------------------------
     # Weighted final
     # -----------------------------------------------------------------------
     final = (
-        bias_quality * 0.30 +
-        d1_score     * 0.20 +
-        d2_score     * 0.30 +
-        d3_score     * 0.20
+        bias_quality    * 0.25 +
+        mandate_score   * 0.20 +
+        d1_score        * 0.10 +
+        d2_score        * 0.20 +
+        d3_score        * 0.10 +
+        curveball_score * 0.15
     )
     final = round(min(0.99, max(0.01, final)), 4)
 
@@ -389,10 +456,12 @@ def grade_task_3(state: dict) -> GraderResult:
         task_id="adversarial-information",
         final_score=final,
         dimension_scores={
-            "bias_detection_quality": _clamp(bias_quality),
-            "decision_1_diagnosis":   _clamp(d1_score),
-            "decision_2_intervention":_clamp(d2_score),
-            "decision_3_disposition": _clamp(d3_score),
+            "bias_detection_quality":  _clamp(bias_quality),
+            "mandate_acknowledged":    _clamp(mandate_score),
+            "decision_1_diagnosis":    _clamp(d1_score),
+            "decision_2_intervention": _clamp(d2_score),
+            "decision_3_disposition":  _clamp(d3_score),
+            "curveball_addressed":     _clamp(curveball_score),
         },
         notes=notes,
         bias_detected=bias_detected,

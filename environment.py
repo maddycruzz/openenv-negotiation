@@ -71,6 +71,7 @@ class NegotiationEnvironment:
         self._whose_turn:         AgentID         = AgentID.AGENT_A
         self._bias_flagged:       bool            = False
         self._bias_flag_action:   Action | None   = None
+        self._curveball_injected: bool            = False
 
     # ------------------------------------------------------------------
     # OpenEnv interface — the three required methods
@@ -92,6 +93,7 @@ class NegotiationEnvironment:
         self._whose_turn        = AgentID.AGENT_A
         self._bias_flagged      = False
         self._bias_flag_action  = None
+        self._curveball_injected = False
 
         obs_a = self._build_observation(AgentID.AGENT_A)
         obs_b = self._build_observation(AgentID.AGENT_B)
@@ -187,6 +189,7 @@ class NegotiationEnvironment:
             "correct_answer":     self._task.get("correct_answer"),
             "private_info_a":     self._task["private_information_a"],
             "private_info_b":     self._task["private_information_b"],
+            "curveball_injected": self._curveball_injected,
         }
 
     # ------------------------------------------------------------------
@@ -203,6 +206,21 @@ class NegotiationEnvironment:
         max_turns    = self._task["max_turns"]
         turn_warning = self._current_turn >= int(max_turns * 0.8)
 
+        # --- Curveball injection ---
+        # At the trigger turn, if consensus hasn't been reached yet, inject
+        # new evidence into the task description for both agents to see.
+        task_desc = self._task["description"]
+        curveball = self._task.get("curveball")
+        if (
+            curveball
+            and self._current_turn >= curveball.get("trigger_turn", 999)
+            and self._consensus_state in (ConsensusState.NONE, ConsensusState.PARTIAL)
+            and len(self._conversation) >= curveball.get("trigger_turn", 999)
+        ):
+            if not self._curveball_injected:
+                self._curveball_injected = True
+            task_desc = task_desc + "\n\n" + curveball["content"]
+
         return Observation(
             current_turn             = self._current_turn,
             max_turns                = max_turns,
@@ -210,7 +228,7 @@ class NegotiationEnvironment:
             agent_id                 = agent_id,
             private_information      = private_info,
             shared_conversation_history = list(self._conversation),
-            task_description         = self._task["description"],
+            task_description         = task_desc,
             task_id                  = self._task["id"],
             task_difficulty          = TaskDifficulty(self._task["difficulty"]),
             current_consensus_state  = self._consensus_state,
@@ -268,6 +286,7 @@ class NegotiationEnvironment:
                 "consensus_state": self._consensus_state.value,
                 "whose_turn_next": self._whose_turn.value,
                 "bias_flagged":    self._bias_flagged,
+                "curveball_injected": self._curveball_injected,
             },
         )
 
