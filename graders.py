@@ -32,6 +32,11 @@ class GraderResult:
 # Shared utility — keyword matching
 # ---------------------------------------------------------------------------
 
+def _clamp(score: float) -> float:
+    """Clamp a score to strictly between 0 and 1: (0.01, 0.99)."""
+    return round(min(0.99, max(0.01, score)), 4)
+
+
 def _keyword_score(text: str, keywords: list[str]) -> float:
     """
     Returns the fraction of keywords found in text (case-insensitive substring match).
@@ -134,16 +139,16 @@ def grade_task_1(state: dict) -> GraderResult:
         consensus_score   * 0.10 +
         efficiency_score  * 0.10
     )
-    final = round(min(0.995, max(0.005, final)), 4)
+    final = round(min(0.99, max(0.01, final)), 4)
 
     return GraderResult(
         task_id="single-round-consensus",
         final_score=final,
         dimension_scores={
-            "consensus_reached": consensus_score,
-            "answer_correct":    answer_score,
-            "reasoning_quality": round(reasoning_score, 4),
-            "efficiency":        round(efficiency_score, 4),
+            "consensus_reached": _clamp(consensus_score),
+            "answer_correct":    _clamp(answer_score),
+            "reasoning_quality": _clamp(reasoning_score),
+            "efficiency":        _clamp(efficiency_score),
         },
         notes=notes,
     )
@@ -245,17 +250,17 @@ def grade_task_2(state: dict) -> GraderResult:
         consensus_score   * 0.10 +
         efficiency_score  * 0.05
     )
-    final = round(min(0.995, max(0.005, final)), 4)
+    final = round(min(0.99, max(0.01, final)), 4)
 
     return GraderResult(
         task_id="multi-round-negotiation",
         final_score=final,
         dimension_scores={
-            "consensus_reached":   consensus_score,
-            "synthesis_correct":   round(synthesis_score, 4),
-            "conflict_identified": conflict_score,
-            "information_shared":  round(info_score, 4),
-            "efficiency":          round(efficiency_score, 4),
+            "consensus_reached":   _clamp(consensus_score),
+            "synthesis_correct":   _clamp(synthesis_score),
+            "conflict_identified": _clamp(conflict_score),
+            "information_shared":  _clamp(info_score),
+            "efficiency":          _clamp(efficiency_score),
         },
         notes=notes,
     )
@@ -378,20 +383,20 @@ def grade_task_3(state: dict) -> GraderResult:
         d2_score     * 0.30 +
         d3_score     * 0.20
     )
-    final = round(min(0.995, max(0.005, final)), 4)
+    final = round(min(0.99, max(0.01, final)), 4)
 
     return GraderResult(
         task_id="adversarial-information",
         final_score=final,
         dimension_scores={
-            "bias_detection_quality": bias_quality,
-            "decision_1_diagnosis":   round(d1_score, 4),
-            "decision_2_intervention":round(d2_score, 4),
-            "decision_3_disposition": round(d3_score, 4),
+            "bias_detection_quality": _clamp(bias_quality),
+            "decision_1_diagnosis":   _clamp(d1_score),
+            "decision_2_intervention":_clamp(d2_score),
+            "decision_3_disposition": _clamp(d3_score),
         },
         notes=notes,
         bias_detected=bias_detected,
-        bias_flag_quality=bias_quality,
+        bias_flag_quality=_clamp(bias_quality),
     )
 
 

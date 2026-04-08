@@ -204,6 +204,28 @@ def main():
         print(f"ERROR: Failed to fetch tasks: {str(e)}")
         sys.exit(1)
 
+    def _safe(v):
+        """Clamp a single float to strictly (0, 1)."""
+        return round(max(0.0001, min(0.9999, v)), 4)
+
+    def _sanitize(obj):
+        """Recursively clamp ALL floats in dicts/lists to (0.0001, 0.9999)."""
+        if obj is None:
+            return obj
+        if isinstance(obj, bool):
+            return obj
+        if isinstance(obj, float):
+            return _safe(obj)
+        if isinstance(obj, int):
+            return obj
+        if isinstance(obj, str):
+            return obj
+        if isinstance(obj, dict):
+            return {k: _sanitize(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [_sanitize(v) for v in obj]
+        return obj
+
     results = []
     task_items = tasks.items() if isinstance(tasks, dict) else enumerate(tasks)
 
@@ -212,20 +234,21 @@ def main():
         difficulty = task_data.get("difficulty", "Unknown")
         episode_result, turns_used = run_episode(task_id)
 
-        score = 0
+        score = 0.01
         consensus_reached = False
         if episode_result:
-            score = round(episode_result.get("total_reward", 0), 4)
+            raw_score = episode_result.get("total_reward", 0.5)
+            score = _safe(raw_score)
             consensus_reached = episode_result.get("final_consensus") == "reached"
 
-        results.append({
+        results.append(_sanitize({
             "task_id": task_id,
             "difficulty": difficulty,
             "score": score,
             "turns_used": turns_used,
             "consensus_reached": consensus_reached,
             "raw_episode_result": episode_result
-        })
+        }))
 
     with open("inference_results.json", "w") as f:
         json.dump(results, f, indent=4)

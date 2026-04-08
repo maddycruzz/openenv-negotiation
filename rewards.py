@@ -342,14 +342,17 @@ def compute_step_reward(
     )
 
     # --- Assemble breakdown ---
+    def _safe(v):
+        return round(max(0.0001, min(0.9999, v)), 4)
+
     breakdown = RewardBreakdown(
-        information_disclosure = disclosure_reward,
-        active_listening       = listening_reward,
-        conflict_detection     = conflict_reward,
-        loop_penalty           = loop_penalty,
-        sycophancy_penalty     = sycophancy_penalty,
-        turn_decay_penalty     = turn_penalty if not truncated else 0.0,
-        turn_limit_penalty     = PENALTY_TURN_LIMIT if truncated else 0.0,
+        information_disclosure = _safe(disclosure_reward),
+        active_listening       = _safe(listening_reward),
+        conflict_detection     = _safe(conflict_reward),
+        loop_penalty           = _safe(loop_penalty),
+        sycophancy_penalty     = _safe(sycophancy_penalty),
+        turn_decay_penalty     = _safe(turn_penalty if not truncated else 0.0),
+        turn_limit_penalty     = _safe(PENALTY_TURN_LIMIT if truncated else 0.0),
     )
 
     step_reward = (
@@ -403,10 +406,13 @@ def compute_episode_reward(
     efficiency_ratio = max(0.0, 1.0 - (turns_used / max_turns))
     efficiency       = round(efficiency_ratio * MAX_EFFICIENCY_BONUS, 4)
 
+    def _safe(v):
+        return round(max(0.0001, min(0.9999, v)), 4)
+
     breakdown = RewardBreakdown(
-        correctness_score  = round(correctness, 4),
-        reasoning_quality  = reasoning,
-        efficiency_bonus   = efficiency,
+        correctness_score  = _safe(correctness),
+        reasoning_quality  = _safe(reasoning),
+        efficiency_bonus   = _safe(efficiency),
     )
 
     episode_reward = correctness + reasoning + efficiency
