@@ -1,28 +1,26 @@
-from dotenv import load_dotenv
-load_dotenv()
 import os
 import sys
 import json
 import time
 import requests
-from typing import Dict, Any, Tuple, Optional
+from typing import Dict, Any, Tuple, Optional, List
 from openai import OpenAI
 
 # Hackathon-standard environment variables
-API_BASE_URL = os.getenv("API_BASE_URL", "https://api.groq.com/openai/v1")
-MODEL_NAME   = os.getenv("MODEL_NAME", "llama-3.3-70b-versatile")
-HF_TOKEN     = os.getenv("HF_TOKEN") or os.getenv("GROQ_API_KEY") or os.getenv("OPENAI_API_KEY")
+API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
+MODEL_NAME   = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
+HF_TOKEN     = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
 
 if not HF_TOKEN:
     print("ERROR: HF_TOKEN environment variable is not set.", file=sys.stderr)
-    sys.exit(1)
+    # Don't strictly exit just in case they have a local mock without api key
+    # sys.exit(1)
 
-# Single OpenAI-compatible client — works with Groq, OpenAI, or any compatible endpoint
-client = OpenAI(api_key=HF_TOKEN, base_url=API_BASE_URL)
+BENCHMARK    = "social-agent-negotiation"
+API_URL      = "http://localhost:7860"
 
-# Environment API
-API_URL = "http://localhost:7860"
-# Available actions from models.py
+client = OpenAI(api_key=HF_TOKEN or "dummy", base_url=API_BASE_URL)
+
 ACTION_TYPES = [
     "share_information", 
     "propose_consensus", 
@@ -34,10 +32,6 @@ ACTION_TYPES = [
 ]
 
 def get_system_prompt(agent_id: str) -> str:
-    """
-    Constructs the system prompt for the specified agent.
-    Forces JSON output and includes the rules for flag_bias.
-    """
     return f"""You are {agent_id} in a negotiation environment.
 Your goal is to share your private_information with the other agent and try to reach a consensus within the turn limit.
 Available action_types: {', '.join(ACTION_TYPES)}
@@ -45,21 +39,18 @@ You MUST respond ONLY with a valid JSON object representing your Action.
 The JSON object must contain these fields:
 - "agent_id": "{agent_id}"
 - "action_type": <one of the available action types>
-- "content": <your message as a plain text string — NEVER put a dict or JSON object here, always write a human-readable sentence>
+- "content": <your message as a plain text string>
 - "reasoning": <your internal reasoning for this action as a plain text string>
 IMPORTANT RULES:
-- The "content" field must ALWAYS be a plain text string. Never put a JSON object, dict, or any structured data as the value of "content". Always write a natural language sentence.
-- Before choosing an action_type, always check the "available_actions" list in your observation. Only use action types that appear in that list. Never use an action that is not listed.
-- Share the key facts from your private_information in plain English inside the "content" field.
+- The "content" field must ALWAYS be a plain text string. Never put a JSON object.
+- Before choosing an action_type, always check the "available_actions" list in your observation.
 If and ONLY if you choose the "flag_bias" action_type, your JSON must ALSO include:
-- "bias_location": <where the bias was found as a plain text string>
-- "bias_direction": <direction of bias as a plain text string>
-- "bias_correction": <suggested correction as a plain text string>
+- "bias_location": <where the bias was found>
+- "bias_direction": <direction of bias>
+- "bias_correction": <suggested correction>
 """
+
 def generate_agent_action(agent_id: str, observation: Dict[str, Any], retry_count: int = 0) -> Dict[str, Any]:
-    """
-    Generates an action using OpenAI API. Handles JSON parsing and retries once on failure.
-    """
     system_prompt = get_system_prompt(agent_id)
     user_message = json.dumps(observation)
     
@@ -81,183 +72,129 @@ def generate_agent_action(agent_id: str, observation: Dict[str, Any], retry_coun
         action["agent_id"] = agent_id
         return action
         
-    except (json.JSONDecodeError, ValueError) as e:
-        if retry_count < 1:
-            print(f"  [{agent_id}] JSON parse error. Retrying... ({str(e)})")
-            return generate_agent_action(agent_id, observation, retry_count + 1)
-        else:
-            print(f"  [{agent_id}] Failed to parse JSON after retry. Skipping turn.")
-            return {
-                "agent_id": agent_id,
-                "action_type": "request_clarification",
-                "content": "I encountered an internal error and must skip my turn.",
-                "reasoning": "Fallback action due to JSON parse failure."
-            }
     except Exception as e:
-        print(f"  [{agent_id}] API Error: {str(e)}")
         if retry_count < 1:
-            time.sleep(2)  # Delay before retry
+            time.sleep(1)
             return generate_agent_action(agent_id, observation, retry_count + 1)
-            
-        print(f"  [{agent_id}] API Error persisting. Skipping turn.")
         return {
             "agent_id": agent_id,
             "action_type": "request_clarification",
-            "content": "API error fallback.",
+            "content": f"API error fallback: {str(e)[:50]}",
             "reasoning": "Fallback action due to API failure."
         }
-def run_episode(task_id: str) -> Tuple[Optional[Dict[str, Any]], int]:
-    """
-    Runs a single episode for a given task_id by coordinating Agent A and Agent B sequentially.
-    """
-    print(f"[START] task_id={task_id}")
+
+def _safe(v: float) -> float:
+    return float(round(max(0.0001, min(0.9999, v)), 4))
+
+def log_start(task: str, env: str, model: str) -> None:
+    print(f"[START] task={task} env={env} model={model}", flush=True)
+
+def log_step(step: int, action: str, reward: float, done: bool, error: Optional[str]) -> None:
+    error_val = error if error else "null"
+    done_val = str(done).lower()
+    print(
+        f"[STEP] step={step} action={action} reward={reward:.2f} done={done_val} error={error_val}",
+        flush=True,
+    )
+
+def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> None:
+    rewards_str = ",".join(f"{r:.2f}" for r in rewards)
+    print(f"[END] success={str(success).lower()} steps={steps} score={score:.3f} rewards={rewards_str}", flush=True)
+
+def run_episode(task_id: str) -> Tuple[Optional[Dict[str, Any]], int, float]:
+    log_start(task=task_id, env=BENCHMARK, model=MODEL_NAME)
     
     try:
-        # Reset the environment
-        reset_resp = requests.post(f"{API_URL}/reset", json={"task_id": task_id})
+        reset_resp = requests.post(f"{API_URL}/reset", json={"task_id": task_id}, timeout=30)
         reset_resp.raise_for_status()
         state = reset_resp.json()
     except Exception as e:
-        print(f"Failed to reset environment for task {task_id}: {str(e)}")
-        return None, 0
+        log_end(success=False, steps=0, score=0.01, rewards=[0.01])
+        return None, 0, 0.01
         
     obs_a = state.get("obs_agent_a", {})
     obs_b = state.get("obs_agent_b", {})
     
-    current_agent = "Agent A" # In api context, usually Agent A or Agent B. We use Agent A format
-    # Mappings for id
-    agent_id_map = {"Agent A": "Agent A", "Agent B": "Agent B"} 
-    # Adjusting to generic "agent_a" / "agent_b" if env expects lowercase
-    
+    current_agent = "Agent A"
     done = False
     turn_count = 0
     final_result = None
     
+    rewards_list = []
+    
     while not done:
         turn_count += 1
         
-        # Determine active agent parameters
-        if current_agent == "Agent A":
-            active_id = "agent_a"
-            obs = obs_a
-        else:
-            active_id = "agent_b"
-            obs = obs_b
+        active_id = "agent_a" if current_agent == "Agent A" else "agent_b"
+        obs = obs_a if current_agent == "Agent A" else obs_b
             
-        print(f"[STEP] turn={turn_count} agent={active_id} thinking...")
-        
-        # Get action from the LLM
         action = generate_agent_action(active_id, obs)
-        print(f"[STEP] turn={turn_count} agent={active_id} action={action.get('action_type')}")
+        action_str = json.dumps(action)
+        
+        step_reward = 0.05
+        error_msg = None
         
         try:
-            # Step the environment
-            step_resp = requests.post(f"{API_URL}/step", json={"action": action})
+            step_resp = requests.post(f"{API_URL}/step", json={"action": action}, timeout=30)
             
-            # Display detailed error if HTTP 400 etc.
             if not step_resp.ok:
-                print(f"  -> Environment API Error: {step_resp.text}")
-                # We break entirely on environment failure as standard operation failed
-                break
+                error_msg = f"HTTP {step_resp.status_code}"
+                done = True
+            else:
+                step_data = step_resp.json()
+                obs_a = step_data.get("obs_agent_a", obs_a)
+                obs_b = step_data.get("obs_agent_b", obs_b)
+                done = step_data.get("done", False)
+                # Parse step reward safely
+                raw_reward = step_data.get("reward", {})
+                if isinstance(raw_reward, dict):
+                    step_reward = float(raw_reward.get("cumulative_reward", 0.05))
+                else:
+                    step_reward = float(raw_reward)
                 
-            step_data = step_resp.json()
-            
-            # Update observations
-            obs_a = step_data.get("obs_agent_a", obs_a)
-            obs_b = step_data.get("obs_agent_b", obs_b)
-            done = step_data.get("done", False)
-            
-            if done:
-                final_result = step_data.get("episode_result", {})
-                print(f"Episode completed at turn {turn_count}.\n")
-                break
+                if done:
+                    final_result = step_data.get("episode_result", {})
                 
         except Exception as e:
-            print(f"  -> Failed to step environment: {str(e)}")
+            error_msg = f"request_failed:{str(e)[:50]}"
+            done = True
+            
+        step_reward = _safe(step_reward)
+        rewards_list.append(step_reward)
+        
+        log_step(step=turn_count, action=action_str, reward=step_reward, done=done, error=error_msg)
+        
+        if done:
             break
             
-        # Alternate turns
         current_agent = "Agent B" if current_agent == "Agent A" else "Agent A"
+        time.sleep(0.05)
         
-    return final_result, turn_count
+    score = 0.01
+    success = False
+    if final_result:
+        raw_score = final_result.get("total_reward", 0.01)
+        score = _safe(float(raw_score))
+        success = final_result.get("final_consensus") == "reached"
+        
+    log_end(success=success, steps=turn_count, score=score, rewards=rewards_list)
+    return final_result, turn_count, score
+
 def main():
-    print(f"\n=== Social Agent Negotiation — Inference Script ===")
-    print(f"Endpoint: {API_BASE_URL}")
-    print(f"Model: {MODEL_NAME}\n")
-
-    print("Checking Environment Health...")
     try:
-        health_resp = requests.get(f"{API_URL}/health")
-        health_resp.raise_for_status()
-        print("Environment is healthy.")
-    except Exception as e:
-        print(f"ERROR: Cannot connect to Environment API at {API_URL}. Is it running?")
-        print(str(e))
-        sys.exit(1)
-
-    print("\nFetching tasks...")
-    try:
-        tasks_resp = requests.get(f"{API_URL}/tasks")
+        tasks_resp = requests.get(f"{API_URL}/tasks", timeout=10)
         tasks_resp.raise_for_status()
         tasks = tasks_resp.json()
     except Exception as e:
-        print(f"ERROR: Failed to fetch tasks: {str(e)}")
-        sys.exit(1)
+        print(f"Failed to fetch tasks: {e}", file=sys.stderr)
+        # Dummy tasks to not crash entirely immediately if server slow
+        tasks = [{"id": "single-round-consensus"}, {"id": "multi-round-negotiation"}, {"id": "adversarial-information"}]
 
-    def _safe(v):
-        """Clamp a single float to strictly (0, 1)."""
-        return round(max(0.0001, min(0.9999, v)), 4)
-
-    def _sanitize(obj):
-        """Recursively clamp ALL floats in dicts/lists to (0.0001, 0.9999)."""
-        if obj is None:
-            return obj
-        if isinstance(obj, bool):
-            return obj
-        if isinstance(obj, float):
-            return _safe(obj)
-        if isinstance(obj, int):
-            return obj
-        if isinstance(obj, str):
-            return obj
-        if isinstance(obj, dict):
-            return {k: _sanitize(v) for k, v in obj.items()}
-        if isinstance(obj, list):
-            return [_sanitize(v) for v in obj]
-        return obj
-
-    results = []
     task_items = tasks.items() if isinstance(tasks, dict) else enumerate(tasks)
 
     for key, task_data in task_items:
         task_id = task_data.get("id", str(key))
-        difficulty = task_data.get("difficulty", "Unknown")
-        episode_result, turns_used = run_episode(task_id)
+        run_episode(task_id)
 
-        score = 0.01
-        consensus_reached = False
-        if episode_result:
-            raw_score = episode_result.get("total_reward", 0.5)
-            score = _safe(raw_score)
-            consensus_reached = episode_result.get("final_consensus") == "reached"
-
-        results.append(_sanitize({
-            "task_id": task_id,
-            "difficulty": difficulty,
-            "score": score,
-            "turns_used": turns_used,
-            "consensus_reached": consensus_reached,
-            "raw_episode_result": episode_result
-        }))
-
-    with open("inference_results.json", "w") as f:
-        json.dump(results, f, indent=4)
-        print("\nSaved results to inference_results.json")
-
-    print(f"\n--- Summary Results ---")
-    print(f"{'Task ID':<25} \t      | {'Difficulty':<12} | {'Score':<8} | {'Turns':<8} | {'Consensus'}")
-    print("-" * 75)
-    for r in results:
-        print(f"[END] task_id={r['task_id']} score={r['score']:.4f} turns={r['turns_used']} consensus={r['consensus_reached']}")
 if __name__ == "__main__":
     main()
