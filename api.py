@@ -139,8 +139,7 @@ def step(request: StepRequest) -> StepResponse:
             grader_result = graders.grade(state)
             from rewards import compute_episode_reward
             episode_reward, episode_breakdown = compute_episode_reward(grader_result, state)
-            raw_total = reward.cumulative_reward + episode_reward
-            total_reward = round(max(0.05, min(0.95, raw_total)), 2)
+            total_reward = round(min(0.99, max(0.01, reward.cumulative_reward + episode_reward)), 4)
             response_kwargs["episode_result"] = EpisodeResult(
                 task_id=grader_result.task_id,
                 task_difficulty=state["task_difficulty"],
@@ -150,7 +149,7 @@ def step(request: StepRequest) -> StepResponse:
                 total_reward=total_reward,
                 reward_breakdown=episode_breakdown,
                 bias_detected=grader_result.bias_detected,
-                bias_flag_quality=grader_result.bias_flag_quality,
+                bias_flag_quality=round(min(0.99, max(0.01, grader_result.bias_flag_quality)), 4),
                 grader_notes=grader_result.notes,
             )
                 
