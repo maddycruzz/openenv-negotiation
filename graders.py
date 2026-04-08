@@ -134,7 +134,7 @@ def grade_task_1(state: dict) -> GraderResult:
         consensus_score   * 0.10 +
         efficiency_score  * 0.10
     )
-    final = round(min(0.99, max(0.01, final)), 4)
+    final = round(min(0.995, max(0.005, final)), 4)
 
     return GraderResult(
         task_id="single-round-consensus",
@@ -245,7 +245,7 @@ def grade_task_2(state: dict) -> GraderResult:
         consensus_score   * 0.10 +
         efficiency_score  * 0.05
     )
-    final = round(min(0.99, max(0.01, final)), 4)
+    final = round(min(0.995, max(0.005, final)), 4)
 
     return GraderResult(
         task_id="multi-round-negotiation",
@@ -378,7 +378,7 @@ def grade_task_3(state: dict) -> GraderResult:
         d2_score     * 0.30 +
         d3_score     * 0.20
     )
-    final = round(min(0.99, max(0.01, final)), 4)
+    final = round(min(0.995, max(0.005, final)), 4)
 
     return GraderResult(
         task_id="adversarial-information",
