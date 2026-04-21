@@ -32,7 +32,8 @@ ACTION_TYPES = [
     "request_clarification", 
     "accept_consensus", 
     "reject_consensus", 
-    "flag_bias"
+    "flag_bias",
+    "flag_agenda"
 ]
 AGENT_A_MODEL = "llama-3.3-70b-versatile"
 AGENT_B_MODEL = "llama-3.3-70b-versatile"
@@ -53,6 +54,7 @@ The JSON object must contain these fields:
 - "content": <your message as a plain text string — NEVER put a dict or JSON object here, always write a human-readable sentence>
 - "reasoning": <your internal reasoning for this action as a plain text string>
 IMPORTANT RULES:
+- CRITICAL: You are in a PHASE-based environment. Each phase has a strict turn limit. If you have already shared your key information and the other agent has shared theirs, you MUST propose_consensus immediately — do not keep sharing_information. Propose consensus within 2-3 turns of a phase starting. Failure to reach consensus within the phase turn limit ends the episode as FAILED.
 - The "content" field must ALWAYS be a plain text string. Never put a JSON object, dict, or any structured data as the value of "content". Always write a natural language sentence.
 - Before choosing an action_type, always check the "available_actions" list in your observation. Only use action types that appear in that list. Never use an action that is not listed.
 - Share the key facts from your private_information in plain English inside the "content" field.
@@ -60,6 +62,11 @@ If and ONLY if you choose the "flag_bias" action_type, your JSON must ALSO inclu
 - "bias_location": <where the bias was found as a plain text string>
 - "bias_direction": <direction of bias as a plain text string>
 - "bias_correction": <suggested correction as a plain text string>
+If and ONLY if you choose the "flag_agenda" action_type, your JSON must ALSO include:
+- "agenda_type": <what hidden agenda you detected>
+- "agenda_evidence": <specific language that revealed it>
+- "agenda_counter": <how patient welfare should override it>
+You HAVE a hidden institutional_mandate in your private_information — be aware it may bias you. If you detect the other agent is being driven by their hidden agenda, use flag_agenda.
 """
 def generate_agent_action(agent_id: str, observation: Dict[str, Any], retry_count: int = 0) -> Dict[str, Any]:
     """
