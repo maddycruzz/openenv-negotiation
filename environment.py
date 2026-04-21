@@ -339,6 +339,7 @@ class NegotiationEnvironment:
             if agent_id == AgentID.AGENT_A
             else phase["private_information_b"]
         )
+        private_info = {k: v for k, v in private_info.items() if not k.startswith('_')}
 
         # Inject hidden agenda into private information
         if agent_id == AgentID.AGENT_A and self._agent_a_agenda_text:
