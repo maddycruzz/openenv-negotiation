@@ -9,7 +9,9 @@ import uvicorn
 from models import Action, Observation, Reward, EpisodeResult
 from environment import NegotiationEnvironment
 from tasks import get_task, list_tasks
+from curriculum import CurriculumManager
 import graders
+
 app = FastAPI(
     title="Negotiation Environment API",
     description="API for social-agent-negotiation-v1",
@@ -23,8 +25,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-# Global state to hold the single environment instance
+# Global state
 app.state.env = None
+curriculum_manager = CurriculumManager()
+
 class HealthResponse(BaseModel):
     status: str
     environment_id: str
@@ -52,7 +56,7 @@ def health():
         "status": "ok",
         "environment_id": "social-agent-negotiation-v1",
         "version": "0.1.0",
-        "tasks_available": 3,
+        "tasks_available": len(list_tasks()),
         "reward_range": [0.01, 0.99]
     }
 @app.get("/tasks", summary="Get Available Tasks")
@@ -69,6 +73,14 @@ def get_tasks() -> Dict[str, Any]:
             cleaned = dict(task)
             cleaned.pop("correct_answer", None)
             cleaned.pop("_bias_metadata", None)
+            cleaned.pop("agendas", None)
+            cleaned.pop("bias_detection_criteria", None)
+            if "phases" in cleaned:
+                # Deep copy to avoid mutating the original registry
+                cleaned["phases"] = [dict(p) for p in cleaned["phases"]]
+                for p in cleaned["phases"]:
+                    p.pop("correct_answer", None)
+                    p.pop("correct_answer_keywords", None)
             return cleaned
         if isinstance(tasks, dict):
             return {k: clean_task(v) for k, v in tasks.items()}
@@ -94,6 +106,9 @@ def reset(request: ResetRequest = None) -> ResetResponse:
             task = get_task(request.task_id)
         except KeyError as e:
             raise HTTPException(status_code=400, detail=str(e))
+        
+        # Apply curriculum difficulty scaling before creating env
+        task = curriculum_manager.apply_to_task(task)
         env = NegotiationEnvironment(task)
         
         # Depending on exactly what API env.reset() implements
@@ -149,9 +164,19 @@ def step(request: StepRequest) -> StepResponse:
                 total_reward=total_reward,
                 reward_breakdown=episode_breakdown,
                 bias_detected=grader_result.bias_detected,
-                bias_flag_quality=round(min(0.99, max(0.01, grader_result.bias_flag_quality)), 4),
+                bias_flag_quality=round(min(0.95, max(0.05, grader_result.bias_flag_quality)), 4),
                 grader_notes=grader_result.notes,
+                phase_results=grader_result.phase_results,
+                axis_scores=grader_result.axis_scores,
+                current_phase=state.get("current_phase", "triage")
             )
+            
+            # Log failure to curriculum manager
+            curriculum_manager.update({
+                "episode_id": f"ep_{env._current_turn}",
+                "axis_scores": grader_result.axis_scores,
+                "failure_categories": grader_result.notes
+            })
                 
         return StepResponse(**response_kwargs)
         
@@ -172,9 +197,17 @@ def validate():
         "tasks": [t["id"] for t in list_tasks()],
         "observation_space": "structured/json",
         "action_space": "discrete-structured/json",
-        "reward_range": [0.01, 0.99],
+        "reward_range": [0.01, 0.95],
         "spec_compliant": True
     }
+
+@app.get("/curriculum", summary="Get Curriculum Report")
+def get_curriculum() -> Any:
+    """
+    Returns the failure trace report and current difficulty parameters.
+    Used for hackathon judge presentation.
+    """
+    return curriculum_manager.get_failure_report()
 
 @app.get("/state", summary="Get Full State")
 def get_state() -> Any:

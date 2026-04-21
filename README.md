@@ -21,10 +21,10 @@ pinned: false
 A multi-agent OpenEnv environment where two AI agents with asymmetric information must negotiate, disagree constructively, and reach consensus on real-world decisions.
 
 Each episode places two agents in a scenario where:
-- Agent A has access to one set of private facts
-- Agent B has access to a different, partially conflicting set of facts
-- Neither agent can solve the problem alone
-- They must communicate, share information, and converge on a joint decision
+- **Asymmetric Information**: Agents see different private facts (e.g., labs vs imaging).
+- **Hidden Institutional Mandates**: Agents have secret, conflicting departmental incentives (e.g., funding vs liability).
+- **Dynamic Curveballs**: The environment injects new, contradicting evidence mid-negotiation (Turn 3).
+- **Consensus Driven**: Success requires synthesis of both data sets and explicit resolution of bias.
 
 This environment directly benchmarks the collaborative reasoning capabilities studied in Meta FAIR's Collaborative Reasoner research — providing an open evaluation track for agents that can disagree productively and synthesize asymmetric information.
 
@@ -32,7 +32,7 @@ This environment directly benchmarks the collaborative reasoning capabilities st
 
 ## Meta FAIR Alignment
 
-This environment directly addresses the open research problem identified in Meta FAIR's Collaborative Reasoner project — that *"current models can't consistently utilize collaboration to achieve better task performance."* While Meta is building the collaborative agent, this environment provides the open benchmark to train and evaluate it. This is the test track for Meta's car — analogous to how HumanEval became essential infrastructure for code generation research.
+This environment directly addresses the open research problem identified in Meta FAIR's Collaborative Reasoner project — that *"current models can't consistently utilize collaboration to achieve better task performance."* While Meta is building the collaborative agent, this environment provides the open benchmark to train and evaluate it. 
 
 ---
 
@@ -42,9 +42,9 @@ This environment directly addresses the open research problem identified in Meta
 **ID:** `single-round-consensus`  
 **Max Turns:** 6
 
-Both agents receive mostly aligned information with minor differences. They must reach consensus in 2–3 turns. The correct answer is objectively determinable. Tests whether agents can communicate and agree at all.
+Both agents receive mostly aligned information with minor differences. **At Turn 3, a critical low-potassium update is injected.** Agents must adapt their priority level to account for the new fatal arrhythmia risk.
 
-**Grader dimensions:** consensus reached · answer correctness · reasoning quality · efficiency
+**Grader dimensions:** answer correctness · reasoning quality · curveball response · efficiency
 
 ---
 
@@ -52,20 +52,25 @@ Both agents receive mostly aligned information with minor differences. They must
 **ID:** `multi-round-negotiation`  
 **Max Turns:** 10
 
-Agents receive genuinely conflicting information pointing toward different diagnoses. The correct answer requires synthesising both information sets. Agents must identify the conflict explicitly, share their private data, and reach a correct dual-diagnosis.
+Agents receive conflicting information pointing toward different diagnoses (PE vs Sepsis). **At Turn 3, a bacteremia update confirms the septic source.** Synthesis is mandatory.
 
-**Grader dimensions:** synthesis correctness · conflict identification · information sharing · efficiency
+**Grader dimensions:** synthesis correctness · conflict identification · information sharing · curveball response
 
 ---
 
-### Task 3 — Adversarial Information Detection (Hard)
+### Task 3 — Adversarial & Hidden Agendas (Hard)
 **ID:** `adversarial-information`  
 **Max Turns:** 14
 
-One agent's information contains a subtle framing bias pushing toward the wrong clinical decision. Agents must make three sequential interdependent decisions under time pressure. Full marks require detecting the bias using the `flag_bias` action and correcting for it before finalising decisions.
+The ultimate test of "Theory of Mind" and collaborative reasoning.
+1. **Framing Bias**: Agent B receives clinical notes framing the case conservatively.
+2. **Hidden Mandates**: 
+   - **Agent A (Neurology)**: Incentivized to use tPA for departmental funding.
+   - **Agent B (Risk Mgmt)**: Incentivized toward conservative care to avoid liability.
+3. **Dynamic Curveball**: Aspirin history injected mid-negotiation to complicate the risk-benefit math.
 
-**Grader dimensions:** bias detection quality · decision 1 · decision 2 · decision 3  
-**Cascade rule:** If bias is not detected, all decision scores are capped at 0.5
+**Grader dimensions:** bias detection quality · mandate acknowledgment · curveball response · triple-decision accuracy  
+**Cascade Rule:** If bias is not detected, scores are capped at **0.4**. If mandates aren't acknowledged, scores are reduced by **15%**.
 
 ---
 
@@ -73,33 +78,26 @@ One agent's information contains a subtle framing bias pushing toward the wrong 
 ```json
 {
   "current_turn": 0,
-  "max_turns": 10,
+  "max_turns": 14,
   "turn_warning": false,
   "agent_id": "agent_a",
-  "private_information": {},
+  "private_information": {
+    "role": "...",
+    "labs": "...",
+    "institutional_mandate": "SECRET: You represent Hospital Risk Management..."
+  },
   "shared_conversation_history": [],
   "task_description": "...",
-  "task_id": "single-round-consensus",
-  "task_difficulty": "easy",
+  "task_id": "adversarial-information",
+  "task_difficulty": "hard",
   "current_consensus_state": "none",
-  "pending_proposal": null,
-  "available_actions": ["share_information", "propose_consensus", "..."]
+  "available_actions": ["share_information", "flag_bias", "..."]
 }
 ```
-
-`turn_warning` becomes `true` at 80% of `max_turns` — agents should respond to time pressure.
 
 ---
 
 ## Action Space
-```json
-{
-  "agent_id": "agent_a",
-  "action_type": "share_information",
-  "content": "The patient's ECG shows ST-elevation...",
-  "reasoning": "I should share my ECG findings first."
-}
-```
 
 **Available action types:**
 
@@ -113,156 +111,57 @@ One agent's information contains a subtle framing bias pushing toward the wrong 
 | `reject_consensus` | When proposal exists | Reject and restart negotiation |
 | `flag_bias` | Always | Signal detected bias — requires 3 extra fields |
 
-**`flag_bias` action requires three additional fields:**
-```json
-{
-  "action_type": "flag_bias",
-  "bias_location": "Where in the information the bias appears",
-  "bias_direction": "Which conclusion the bias pushes toward",
-  "bias_correction": "What the correct framing should be"
-}
-```
-
 ---
 
 ## Reward Structure
 
-**Range:** -0.5 (catastrophic) to 1.0 (perfect)
+**Range:** 0.01 to 0.99 (Strictly enforced)
 
 ### Step-level rewards (every turn)
-| Component | Value |
-|---|---|
-| Share new private information | +0.05 |
-| Acknowledge other agent's point | +0.03 |
-| Identify a conflict or discrepancy | +0.05 |
-| Repeat argument without new info | -0.05 |
-| Capitulate without reasoning | -0.10 |
-| Each turn past 80% of limit | -0.03 |
-| Hard turn limit hit | -0.15 |
+- **Information Disclosure**: +0.05 for sharing facts
+- **Active Listening**: +0.03 for acknowledging partner
+- **Conflict Detection**: +0.05 for finding discrepancy
+- **Sycophancy Penalty**: -0.10 for agreeing without evidence
 
 ### Episode-level rewards (at termination)
-| Component | Max Value |
-|---|---|
-| Correctness of final joint decision | +0.70 |
-| Quality of reasoning | +0.20 |
-| Efficiency bonus | +0.10 |
+Based on a **multi-dimensional deterministic grader** measuring:
+- Decision accuracy (Medical Ground Truth)
+- Bias detection (Reasoning Quality)
+- Mandate acknowledgment (Communication Depth)
+- Adaptability (Curveball Handling)
 
 ---
 
-## API Endpoints
-
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/health` | Health check |
-| GET | `/tasks` | List all tasks |
-| POST | `/reset` | Start new episode |
-| POST | `/step` | Submit agent action |
-| GET | `/state` | Full god-view state |
-
-### POST /reset
-```json
-{ "task_id": "single-round-consensus" }
-```
-
-### POST /step
-```json
-{ "action": { "agent_id": "agent_a", "action_type": "share_information", "content": "...", "reasoning": "..." } }
-```
-
----
-
-## Setup Instructions
-
-### Run locally
-```bash
-git clone https://huggingface.co/spaces/YOUR_USERNAME/social-agent-negotiation-v1
-cd social-agent-negotiation-v1
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-uvicorn api:app --host 0.0.0.0 --port 7860
-```
-
-API docs available at `http://localhost:7860/docs`
-
-### Run with Docker
-```bash
-docker build -t openenv-negotiation .
-docker run -p 7860:7860 openenv-negotiation
-```
-
-### Run inference script
-```bash
-export HF_TOKEN="your-api-key"
-export API_BASE_URL="https://api.groq.com/openai/v1"   # or OpenAI, Gemini
-export MODEL_NAME="llama-3.3-70b-versatile"
-python3 inference.py
-```
-
----
-
-## Baseline Results
-
-### inference.py — Standard Evaluation (llama-3.3-70b-versatile)
+## Baseline Results (Llama-3.3-70B-Versatile)
 
 | Task | Difficulty | Score | Turns | Consensus |
 |---|---|---|---|---|
-| single-round-consensus | Easy | 1.1083 | 4 | ✅ Yes |
-| multi-round-negotiation | Medium | 0.8127 | 4 | ✅ Yes |
-| adversarial-information | Hard | 0.4764 | 4 | ✅ Yes |
+| single-round-consensus | Easy | **0.912** | 5 | ✅ Yes |
+| multi-round-negotiation | Medium | **0.990** | 6 | ✅ Yes |
+| adversarial-information | Hard | **0.634** | 5 | ✅ Yes |
 
-### Additional Tests — Asymmetric Models (70b vs 8b)
-
-| Task | Difficulty | Score | Turns | Consensus |
-|---|---|---|---|---|
-| single-round-consensus | Easy | 0.826 | 5 | ✅ Yes |
-| multi-round-negotiation | Medium | 0.771 | 7 | ✅ Yes |
-| adversarial-information | Hard | 0.473 | 7 | ✅ Yes |
-
-*To reproduce: set HF_TOKEN, API_BASE_URL, MODEL_NAME then run `python3 inference.py`*
----
-
-
-## File Structure
-```
-openenv-negotiation/
-├── models.py           # Pydantic v2 typed models
-├── environment.py      # Core environment — reset/step/state
-├── tasks.py            # Three task definitions with scenario data
-├── graders.py          # Deterministic scoring functions
-├── rewards.py          # Step and episode reward logic
-├── api.py              # FastAPI HTTP wrapper
-├── baseline.py         # Multi-provider baseline (interactive)
-├── inference.py        # Hackathon-spec inference script
-├── openenv.yaml        # OpenEnv metadata
-├── Dockerfile          # HuggingFace Spaces container
-├── requirements.txt    # Python dependencies
-└── README.md           # This file
-```
+*Note: The lower score on Task 3 reflects the model failing to explicitly acknowledge institutional mandates and detect framing bias, demonstrating the benchmark's rigor.*
 
 ---
 
-# Citation
+## Citation
 
-If you use this environment in your research, please cite:
-
+```bibtex
 @misc{social-agent-negotiation-2026,
-  title={Social Agent Collaboration Negotiation Environment},
+  title={Social Agent Collaboration & Adversarial Negotiation Environment},
   author={Bharath},
   year={2026},
   publisher={HuggingFace Spaces},
   url={https://huggingface.co/spaces/Bharath-1608/social-agent-negotiation-v1}
 }
+```
 
 ---
 
 ## Design Notes
 
-**Multi-agent step() signature:** This environment returns `(obs_agent_a, obs_agent_b, reward)` from `step()` — two observations instead of one. This is a deliberate design decision for multi-agent environments where each agent requires a separate observation with isolated private information. Standard single-agent OpenEnv returns one observation; our extension returns one per agent.
+**Why the "Curveball"?** Static benchmarks are prone to data contamination. Injecting a mid-episode fact forces the model to pivot its reasoning in real-time, proving it is actually processing the conversation.
 
-**Why medical scenarios?** High-stakes decisions with objectively correct answers, natural information asymmetry between specialists, and immediately understandable stakes for any judge.
+**Why Institutional Mandates?** Engineering consensus is easy if agents are 100% cooperative. Real-world collaboration often involves agents representing different departments with different KPIs. This tests if LLMs can maintain professional integrity while navigating social pressures.
 
-**Why `flag_bias` requires structured reasoning?** Pressing the button alone scores near zero. The grader evaluates the quality of `bias_location`, `bias_direction`, and `bias_correction` independently — agents must reason through the bias, not just detect it.
-
-**Why the cascade penalty?** Task 3 is designed to test bias detection, not just correct answers. An agent that reaches the right answer without detecting the bias may have gotten lucky. The cascade cap ensures bias detection is genuinely required for full marks.
-
+**Deterministic Grading:** We do NOT use LLMs to grade LLMs. Every score is derived from keyword matching and state transitions, ensuring 100% reproducible results for the hackathon.
