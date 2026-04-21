@@ -12,16 +12,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy all source files
-COPY models.py .
-COPY environment.py .
-COPY tasks.py .
-COPY graders.py .
-COPY rewards.py .
-COPY api.py .
-COPY baseline.py .
-COPY openenv.yaml .
-COPY index.html .
-COPY inference.py .
+COPY . .
 
 # Expose port 7860 — required by HuggingFace Spaces
 EXPOSE 7860
