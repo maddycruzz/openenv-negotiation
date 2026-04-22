@@ -40,6 +40,10 @@ MAX_CORRECTNESS_SCORE          =  0.70
 MAX_REASONING_QUALITY          =  0.20
 MAX_EFFICIENCY_BONUS           =  0.10
 
+# Fix 1 — Minimum turn gates (anti speed-run)
+MIN_TURNS = {"easy": 6, "medium": 8, "hard": 10}
+MIN_TURN_PENALTY = {"easy": 0.30, "medium": 0.35, "hard": 0.40}
+
 # Thresholds
 LOOP_SIMILARITY_THRESHOLD      =  0.70   # 70% word overlap = loop
 SYCOPHANCY_MAX_WORDS           =  20     # Reasoning under this = suspect
@@ -484,6 +488,7 @@ def compute_episode_reward(
 ) -> tuple[float, RewardBreakdown]:
     turns_used = state.get("current_turn", 1)
     max_turns  = state.get("max_turns", 10)
+    difficulty = state.get("task_difficulty", "easy")
 
     # Correctness — grader final score maps to 0.0–0.70
     correctness = grader_result.final_score * MAX_CORRECTNESS_SCORE
@@ -500,6 +505,24 @@ def compute_episode_reward(
     efficiency_ratio = max(0.0, 1.0 - (turns_used / max_turns))
     efficiency       = round(efficiency_ratio * MAX_EFFICIENCY_BONUS, 4)
 
+    episode_reward = correctness + reasoning + efficiency
+
+    # --- Fix 1: Minimum turn gate ---
+    min_turns_required = MIN_TURNS.get(difficulty, 6)
+    if turns_used < min_turns_required:
+        penalty = MIN_TURN_PENALTY.get(difficulty, 0.30)
+        episode_reward -= penalty
+        # Note is passed via grader_result.notes in callers; reward is self-documenting
+
+    # --- Fix 3 (speed-run supplement): penalise proposal accepted at turn <= 5 ---
+    # Check the conversation for accept_consensus at a low global turn
+    for msg in state.get("conversation", []):
+        if msg.get("action_type") == "accept_consensus" and msg.get("turn", 99) <= 5:
+            episode_reward -= 0.20
+            break
+
+    episode_reward = round(min(0.95, max(0.05, episode_reward)), 4)
+
     def _safe(v):
         if v == 0:
             return 0.01
@@ -509,7 +532,7 @@ def compute_episode_reward(
         correctness_score  = _safe(correctness),
         reasoning_quality  = _safe(reasoning),
         efficiency_bonus   = _safe(efficiency),
-        # Step components can be defaulted for episode level
+        # Step components defaulted for episode level
         information_disclosure=0.01,
         active_listening=0.01,
         conflict_detection=0.01,
@@ -522,8 +545,5 @@ def compute_episode_reward(
         phase_completion_bonus=0.01,
         mandate_penalty=0.01
     )
-
-    episode_reward = correctness + reasoning + efficiency
-    episode_reward = round(min(0.95, max(0.05, episode_reward)), 4)
 
     return episode_reward, breakdown
