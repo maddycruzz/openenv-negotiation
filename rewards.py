@@ -517,7 +517,7 @@ def compute_episode_reward(
     # --- Fix 3 (speed-run supplement): penalise proposal accepted at turn <= 5 ---
     # Check the conversation for accept_consensus at a low global turn
     for msg in state.get("conversation", []):
-        if msg.get("action_type") == "accept_consensus" and msg.get("turn", 99) <= 5:
+        if msg.get("action_type") == "accept_consensus" and msg.get("turn", 99) < MIN_TURNS.get(difficulty, 6):
             episode_reward -= 0.20
             break
 

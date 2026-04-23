@@ -59,7 +59,7 @@ class CurriculumManager:
         all_mastered = all(avg > 0.75 for avg in avgs.values())
         if all_mastered:
             for k in self.difficulty_params:
-                self.difficulty_params[k] = max(1, self.difficulty_params[k] - 1)
+                self.difficulty_params[k] = min(5, self.difficulty_params[k] + 1)
             return
 
         # Increment specific difficulties for weak spots

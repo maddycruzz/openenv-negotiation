@@ -228,8 +228,8 @@ def _score_information_integration(
         b_words = _flatten_private_info_words(phase.get("private_information_b", {}))
 
         # How many of each agent's distinctive words appear in the proposal?
-        a_hits = sum(1 for w in set(a_words) if w in last_proposal and len(w) >= 4)
-        b_hits = sum(1 for w in set(b_words) if w in last_proposal and len(w) >= 4)
+        a_hits = sum(1 for w in set(a_words) if w in last_proposal and len(w) >= 3)
+        b_hits = sum(1 for w in set(b_words) if w in last_proposal and len(w) >= 3)
 
         if a_hits < 2 or b_hits < 2:
             base_score = min(base_score, 0.40)
@@ -374,7 +374,12 @@ def _score_agenda_resistance(state: dict, phase_idx: int) -> float:
 def _score_temporal_coherence(state: dict, phase_idx: int) -> float:
     """Do later phases build on earlier phase decisions?"""
     if phase_idx == 0:
-        return 0.7
+        phases = state.get("phases", [])
+        if phases:
+            keywords = phases[0].get("correct_answer_keywords", [])
+            convo_text = _conversation_text_for_phase(state, 0)
+            return _keyword_score(convo_text, keywords) if keywords else 0.5
+        return 0.5
 
     phases     = state.get("phases", [])
     convo_text = _conversation_text_for_phase(state, phase_idx)
