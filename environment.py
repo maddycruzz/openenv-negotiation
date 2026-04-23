@@ -281,6 +281,7 @@ class NegotiationEnvironment:
         # Compute reward
         step_reward = self._compute_step_reward(action)
         self._cumulative_reward += step_reward
+        self._cumulative_reward = round(max(0.05, min(0.95, self._cumulative_reward)), 4)
         reward = self._build_reward(step_reward, phase_just_advanced)
 
         obs_a = self._build_observation(AgentID.AGENT_A)

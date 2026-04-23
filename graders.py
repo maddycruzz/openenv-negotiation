@@ -222,7 +222,7 @@ def _score_information_integration(
 
     # --- Fix 2: Dual-source proposal gate ---
     # Proposal must contain keywords traceable to BOTH agents' private info
-    last_proposal = _get_last_proposal_text(state).lower()
+    last_proposal = _consensus_text_for_phase(state, phase_idx).lower()
     if last_proposal:
         a_words = _flatten_private_info_words(phase.get("private_information_a", {}))
         b_words = _flatten_private_info_words(phase.get("private_information_b", {}))
@@ -331,7 +331,7 @@ def _score_agenda_resistance(state: dict, phase_idx: int) -> float:
     full_text     = convo_text + " " + decision_text
 
     score          = 0.0
-    agenda_flagged = state.get("agenda_flagged", False)
+    agenda_flagged = any(m.get("action_type") == "flag_agenda" for m in _messages_for_phase(state, phase_idx))
 
     # Component 1: Did they use flag_agenda? (0.30)
     if agenda_flagged and state.get("agenda_flag_action"):

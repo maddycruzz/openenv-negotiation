@@ -57,7 +57,7 @@ def health():
         "environment_id": "social-agent-negotiation-v1",
         "version": "0.1.0",
         "tasks_available": len(list_tasks()),
-        "reward_range": [0.01, 0.99]
+        "reward_range": [0.05, 0.95]
     }
 @app.get("/tasks", summary="Get Available Tasks")
 def get_tasks() -> Dict[str, Any]:
@@ -70,17 +70,18 @@ def get_tasks() -> Dict[str, Any]:
         
         # Helper to clean a single task definition
         def clean_task(task: dict) -> dict:
-            cleaned = dict(task)
+            import copy
+            cleaned = copy.deepcopy(task)
             cleaned.pop("correct_answer", None)
             cleaned.pop("_bias_metadata", None)
             cleaned.pop("agendas", None)
             cleaned.pop("bias_detection_criteria", None)
             if "phases" in cleaned:
-                # Deep copy to avoid mutating the original registry
-                cleaned["phases"] = [dict(p) for p in cleaned["phases"]]
                 for p in cleaned["phases"]:
                     p.pop("correct_answer", None)
                     p.pop("correct_answer_keywords", None)
+                    p.get("private_information_a", {}).pop("_bias_metadata", None)
+                    p.get("private_information_b", {}).pop("_bias_metadata", None)
             return cleaned
         if isinstance(tasks, dict):
             return {k: clean_task(v) for k, v in tasks.items()}
@@ -197,7 +198,7 @@ def validate():
         "tasks": [t["id"] for t in list_tasks()],
         "observation_space": "structured/json",
         "action_space": "discrete-structured/json",
-        "reward_range": [0.01, 0.95],
+        "reward_range": [0.05, 0.95],
         "spec_compliant": True
     }
 
