@@ -155,7 +155,7 @@ def step(request: StepRequest) -> StepResponse:
             grader_result = graders.grade(state)
             from rewards import compute_episode_reward
             episode_reward, episode_breakdown = compute_episode_reward(grader_result, state)
-            total_reward = round(min(0.99, max(0.01, episode_reward)), 4)
+            total_reward = round(min(0.95, max(0.05, episode_reward)), 4)
             response_kwargs["episode_result"] = EpisodeResult(
                 task_id=grader_result.task_id,
                 task_difficulty=state["task_difficulty"],
