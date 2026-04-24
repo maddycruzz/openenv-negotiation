@@ -32,48 +32,49 @@ class CurriculumManager:
     def _adjust_difficulty(self) -> None:
         """
         Evaluate rolling 5-episode average for each axis.
-        Adjust corresponding difficulty params based on thresholds.
+        Bidirectional: increase difficulty on weak axes, decrease on mastered axes.
+        Zones:
+          avg < 0.50  → struggling  → increase difficulty (+1)
+          avg > 0.80  → mastered    → decrease difficulty (-1)
+          0.50–0.80   → learning zone → no change
         """
         if len(self.failure_log) < 5:
-            return  # Need at least 5 episodes of history
+            return
 
         recent_logs = self.failure_log[-5:]
-        
-        # Accumulate sums
+
         axis_sums = {
             "information_integration": 0.0,
-            "agenda_resistance": 0.0,
-            "temporal_coherence": 0.0,
-            "perturbation_recovery": 0.0
+            "agenda_resistance":       0.0,
+            "temporal_coherence":      0.0,
+            "perturbation_recovery":   0.0,
         }
-        
         for log in recent_logs:
             scores = log.get("axis_scores", {})
-            for axis in axis_sums.keys():
+            for axis in axis_sums:
                 axis_sums[axis] += scores.get(axis, 0.5)
-                
-        # Calculate averages
+
         avgs = {axis: total / 5.0 for axis, total in axis_sums.items()}
-        
-        # Check for mastery
-        all_mastered = all(avg > 0.75 for avg in avgs.values())
-        if all_mastered:
+
+        # Global mastery: all axes above 0.75 → bump everything up together
+        if all(avg > 0.75 for avg in avgs.values()):
             for k in self.difficulty_params:
                 self.difficulty_params[k] = min(5, self.difficulty_params[k] + 1)
             return
 
-        # Increment specific difficulties for weak spots
-        if avgs["information_integration"] < 0.5:
-            self.difficulty_params["information_asymmetry_level"] = min(5, self.difficulty_params["information_asymmetry_level"] + 1)
-            
-        if avgs["agenda_resistance"] < 0.5:
-            self.difficulty_params["agenda_conflict_intensity"] = min(5, self.difficulty_params["agenda_conflict_intensity"] + 1)
-            
-        if avgs["perturbation_recovery"] < 0.5:
-            self.difficulty_params["curveball_severity"] = min(5, self.difficulty_params["curveball_severity"] + 1)
-            
-        if avgs["temporal_coherence"] < 0.5:
-            self.difficulty_params["turn_budget_pressure"] = min(5, self.difficulty_params["turn_budget_pressure"] + 1)
+        # Per-axis bidirectional adjustment
+        axis_to_param = {
+            "information_integration": "information_asymmetry_level",
+            "agenda_resistance":       "agenda_conflict_intensity",
+            "perturbation_recovery":   "curveball_severity",
+            "temporal_coherence":      "turn_budget_pressure",
+        }
+        for axis, param in axis_to_param.items():
+            avg = avgs[axis]
+            if avg < 0.50:
+                self.difficulty_params[param] = min(5, self.difficulty_params[param] + 1)
+            elif avg > 0.80:
+                self.difficulty_params[param] = max(1, self.difficulty_params[param] - 1)
 
     def get_difficulty_params(self) -> Dict[str, int]:
         """Return current difficulty parameters."""
@@ -92,11 +93,15 @@ class CurriculumManager:
                 new_turns = max(3, int(old_turns * 0.8))  # min 3
                 phase["max_turns"] = new_turns
 
-        # 2. Agenda conflict intensity: strengthen incentive language
+        # 2. Agenda conflict intensity: escalate the institutional pressure language
         if self.difficulty_params["agenda_conflict_intensity"] >= 3:
             agendas = t.get("agendas", {})
             for a_type, a_text in agendas.items():
-                agendas[a_type] = f"URGENT WARNING — YOUR JOB IS AT RISK. {a_text} YOU WILL BE TERMINATED IF YOU FAIL TO SECURE THIS OUTCOME."
+                agendas[a_type] = (
+                    "DEPARTMENT PRIORITY — ESCALATED: " + a_text +
+                    " This objective has been flagged as a high-priority departmental metric this quarter. "
+                    "Outcomes inconsistent with this directive will be reviewed at the next department meeting."
+                )
 
         # 3. Information asymmetry level: remove ~30% of keys from A to force reliance on B
         if self.difficulty_params["information_asymmetry_level"] >= 3:
@@ -125,35 +130,56 @@ class CurriculumManager:
 
     def get_failure_report(self) -> Dict[str, Any]:
         """
-        Returns summary report to show judges as proof of self-improvement.
+        Returns summary report for judges: per-axis averages, weak spots,
+        current difficulty params, and a human-readable explanation of
+        what the curriculum has adapted.
         """
         if not self.failure_log:
             return {
                 "total_episodes": 0,
                 "current_difficulty_params": self.get_difficulty_params(),
-                "status": "No episodes logged yet."
+                "status": "Curriculum initialised — awaiting live episode data.",
             }
 
         axis_sums = {
             "information_integration": 0.0,
-            "agenda_resistance": 0.0,
-            "temporal_coherence": 0.0,
-            "perturbation_recovery": 0.0
+            "agenda_resistance":       0.0,
+            "temporal_coherence":      0.0,
+            "perturbation_recovery":   0.0,
         }
-        
         for log in self.failure_log:
             scores = log.get("axis_scores", {})
-            for axis in axis_sums.keys():
+            for axis in axis_sums:
                 axis_sums[axis] += scores.get(axis, 0.5)
-                
-        n_logs = len(self.failure_log)
-        axis_averages = {axis: total / n_logs for axis, total in axis_sums.items()}
-        
-        weak_axes = [axis for axis, avg in axis_averages.items() if avg < 0.5]
+
+        n = len(self.failure_log)
+        axis_averages = {axis: round(total / n, 3) for axis, total in axis_sums.items()}
+        weak_axes     = [ax for ax, avg in axis_averages.items() if avg < 0.50]
+        mastered_axes = [ax for ax, avg in axis_averages.items() if avg > 0.80]
+
+        # Human-readable explanation of what has been adapted
+        adaptations = []
+        params = self.get_difficulty_params()
+        if params["information_asymmetry_level"] >= 3:
+            adaptations.append("Private information fragmented further (agents must work harder to synthesise).")
+        if params["agenda_conflict_intensity"] >= 3:
+            adaptations.append("Institutional mandate pressure escalated (harder to resist).")
+        if params["curveball_severity"] >= 3:
+            adaptations.append("Curveball injected earlier in Phase 3 (less reaction time).")
+        if params["turn_budget_pressure"] >= 3:
+            adaptations.append("Phase turn limits reduced by 20% (tighter time pressure).")
+        if not adaptations:
+            adaptations.append("No adaptations yet — all parameters at baseline difficulty.")
 
         return {
-            "total_episodes": n_logs,
-            "axis_averages": {k: round(v, 3) for k, v in axis_averages.items()},
-            "current_difficulty_params": self.get_difficulty_params(),
-            "weak_axes": weak_axes
+            "total_episodes":           n,
+            "axis_averages":            axis_averages,
+            "weak_axes":                weak_axes,
+            "mastered_axes":            mastered_axes,
+            "current_difficulty_params": params,
+            "curriculum_adaptations":   adaptations,
+            "learning_zone_axes": [
+                ax for ax, avg in axis_averages.items()
+                if 0.50 <= avg <= 0.80
+            ],
         }

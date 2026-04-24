@@ -1,0 +1,40 @@
+[
+    {
+        "model": "llama-3.3-70b-versatile",
+        "provider": "Groq",
+        "run_note": "Separate baseline run via python baseline.py → Groq → llama-3.3-70b-versatile",
+        "tasks": [
+            {
+                "task_id": "single-round-consensus",
+                "difficulty": "easy",
+                "score": 0.99,
+                "consensus_reached": true
+            },
+            {
+                "task_id": "multi-round-negotiation",
+                "difficulty": "medium",
+                "score": 0.99,
+                "consensus_reached": true
+            },
+            {
+                "task_id": "adversarial-information",
+                "difficulty": "hard",
+                "score": 0.6329,
+                "consensus_reached": true
+            },
+            {
+                "task_id": "pediatric-meningitis",
+                "difficulty": "hard",
+                "score": 0.99,
+                "consensus_reached": true
+            },
+            {
+                "task_id": "opioid-overdose",
+                "difficulty": "hard",
+                "score": 0.7606,
+                "consensus_reached": true
+            }
+        ],
+        "key_finding": "70B reaches consensus on 5/5 tasks. adversarial-information is the hardest — 0.6329 vs 0.99 on easy — because bias detection under institutional pressure requires active reasoning that does not improve with scale alone. This is the training target for GRPO."
+    }
+]

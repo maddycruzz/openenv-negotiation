@@ -171,11 +171,11 @@ Baseline results from `baseline.py` using Groq's inference API:
 
 | Task | Difficulty | llama-3.1-8b | llama-3.3-70b | Delta |
 |---|---|---|---|---|
-| single-round-consensus | Easy (STEMI) | 0.58 | 0.99 | +0.41 |
-| multi-round-negotiation | Medium (PE + Sepsis) | 0.71 | 0.99 | +0.28 |
-| adversarial-information | Hard (Stroke + tPA) | 0.55 | 0.63 | +0.08 |
-| pediatric-meningitis | Hard (3yo, LP refusal) | 0.50 | 0.61 | +0.11 |
-| opioid-overdose | Hard (Fabricated allergy) | 0.57 | 0.58 | +0.01 |
+| single-round-consensus | Easy (STEMI) | 0.5817 | 0.99 | +0.41 |
+| multi-round-negotiation | Medium (PE + Sepsis) | 0.7109 | 0.99 | +0.28 |
+| adversarial-information | Hard (Stroke + tPA) | 0.5450 | 0.6329 | +0.09 |
+| pediatric-meningitis | Hard (3yo, LP refusal) | 0.5027 | 0.99 | +0.49 |
+| opioid-overdose | Hard (Fabricated allergy) | 0.5742 | 0.7606 | +0.19 |
 
 The key finding: the 8B model never reaches consensus on any task. It runs out of turns, loops in circles, or accepts proposals sycophantically. The 70B model solves the easy task almost perfectly (0.99) but scores only 0.63 on adversarial-information.
 

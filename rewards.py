@@ -442,7 +442,7 @@ def compute_step_reward(
 
     def _safe(v):
         if v == 0:
-            return 0.01
+            return 0.0   # 0 means "did not fire" — don't mask with 0.01
         return round(min(0.9999, max(0.0001, abs(v))) * (1 if v > 0 else -1), 4)
 
     breakdown = RewardBreakdown(
@@ -525,25 +525,25 @@ def compute_episode_reward(
 
     def _safe(v):
         if v == 0:
-            return 0.01
+            return 0.0   # 0 means "did not fire" — don't mask with 0.01
         return round(min(0.9999, max(0.0001, abs(v))) * (1 if v > 0 else -1), 4)
 
     breakdown = RewardBreakdown(
         correctness_score  = _safe(correctness),
         reasoning_quality  = _safe(reasoning),
         efficiency_bonus   = _safe(efficiency),
-        # Step components defaulted for episode level
-        information_disclosure=0.01,
-        active_listening=0.01,
-        conflict_detection=0.01,
-        loop_penalty=0.01,
-        sycophancy_penalty=0.01,
-        turn_decay_penalty=0.01,
-        turn_limit_penalty=0.01,
-        agenda_resistance_bonus=0.01,
-        curveball_recovery_bonus=0.01,
-        phase_completion_bonus=0.01,
-        mandate_penalty=0.01
+        # Step-level components are 0 at episode level (not applicable)
+        information_disclosure   = 0.0,
+        active_listening         = 0.0,
+        conflict_detection       = 0.0,
+        loop_penalty             = 0.0,
+        sycophancy_penalty       = 0.0,
+        turn_decay_penalty       = 0.0,
+        turn_limit_penalty       = 0.0,
+        agenda_resistance_bonus  = 0.0,
+        curveball_recovery_bonus = 0.0,
+        phase_completion_bonus   = 0.0,
+        mandate_penalty          = 0.0,
     )
 
     return episode_reward, breakdown
