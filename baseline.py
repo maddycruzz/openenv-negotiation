@@ -13,10 +13,8 @@ from google import genai as genai_new
 API_URL = "http://localhost:7860"
 MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
 API_KEY = os.getenv("OPENAI_API_KEY")
-if not API_KEY:
-    print("ERROR: OPENAI_API_KEY environment variable is not set.", file=sys.stderr)
-    sys.exit(1)
-client = OpenAI(api_key=API_KEY)
+# OpenAI client is optional — only needed if provider == "openai"
+client = OpenAI(api_key=API_KEY) if API_KEY else None
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -107,6 +105,8 @@ def generate_agent_action(agent_id: str, observation: Dict[str, Any], retry_coun
                 content = content.strip()
 
         else:
+            if client is None:
+                raise ValueError("OPENAI_API_KEY not set. Set it in .env or choose Groq/Gemini.")
             response = client.chat.completions.create(
                 model=model,
                 messages=[
@@ -164,7 +164,8 @@ def run_episode(task_id: str) -> Tuple[Optional[Dict[str, Any]], int]:
     except Exception as e:
         print(f"Failed to reset environment for task {task_id}: {str(e)}")
         return None, 0
-        
+
+    session_id = state.get("session_id")   # isolate this episode from concurrent ones
     obs_a = state.get("obs_agent_a", {})
     obs_b = state.get("obs_agent_b", {})
     
@@ -195,8 +196,11 @@ def run_episode(task_id: str) -> Tuple[Optional[Dict[str, Any]], int]:
         print(f"  -> {active_id} decided to: {action.get('action_type')}")
         
         try:
-            # Step the environment
-            step_resp = requests.post(f"{API_URL}/step", json={"action": action})
+            # Step the environment — pass session_id so concurrent runs don't interfere
+            step_payload = {"action": action}
+            if session_id:
+                step_payload["session_id"] = session_id
+            step_resp = requests.post(f"{API_URL}/step", json=step_payload)
             
             # Display detailed error if HTTP 400 etc.
             if not step_resp.ok:
