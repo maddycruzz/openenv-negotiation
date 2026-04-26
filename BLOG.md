@@ -1,6 +1,6 @@
 ---
 title: "Social Agent Negotiation: Teaching AI to Disagree Productively"
-thumbnail: https://huggingface.co/spaces/Bharath-1608/social-agent-negotiation-v1/resolve/main/reward_curve_final.png
+thumbnail: https://raw.githubusercontent.com/maddycruzz/openenv-negotiation/main/reward_curve_final.png
 authors:
 - user: Bharath-1608
   guest: true
@@ -169,6 +169,16 @@ This is the part of the environment that makes it suitable for long-term RL rese
 
 Baseline results from `baseline.py` using Groq's inference API:
 
+**Aggregated by difficulty (llama-3.3-70b-versatile):**
+
+| Difficulty | Avg Score |
+|---|---|
+| Easy | 1.1083 |
+| Medium | 0.8127 |
+| Hard | 0.4764 |
+
+**Per-task breakdown:**
+
 | Task | Difficulty | llama-3.1-8b | llama-3.3-70b | Delta |
 |---|---|---|---|---|
 | single-round-consensus | Easy (STEMI) | 0.5817 | 0.99 | +0.41 |
@@ -188,6 +198,8 @@ This is exactly the reasoning behavior that does not emerge from pretraining and
 ## Teaching Agents to Disagree Better
 
 We built a GRPO training pipeline on top of this environment targeting Llama-3.2-1B-Instruct. The 1B model is the training target because it is the right size for RL experiments: fast enough to run thousands of rollouts, small enough to see clear learning curves.
+
+![GRPO Training Reward Curve — 0.2 to 0.9 in 695 steps](https://raw.githubusercontent.com/maddycruzz/openenv-negotiation/main/reward_curve_final.png)
 
 **Setup:**
 - Base model: Llama-3.2-1B-Instruct
