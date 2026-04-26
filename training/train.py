@@ -59,7 +59,7 @@ EPISODES_PER_TASK     = 6
 MAX_TURNS_PER_EPISODE = 20
 API_TIMEOUT           = 30
 MAX_NEW_TOKENS        = 512
-MAX_SEQ_LENGTH        = 2048
+MAX_SEQ_LENGTH        = 4096
 
 TIME_LIMIT_SECONDS    = 2.5 * 3600   # 2.5 hours → $2.63 on A10G
 
@@ -521,7 +521,7 @@ def train():
         output_dir                  = "./grpo_output",
         num_train_epochs            = 1,
         per_device_train_batch_size = 1,
-        gradient_accumulation_steps = 4,
+        gradient_accumulation_steps = 2,
         learning_rate               = 2e-5,
         max_completion_length       = MAX_NEW_TOKENS,
         num_generations             = 2,
