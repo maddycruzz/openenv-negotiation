@@ -1,0 +1,10 @@
+unsloth
+trl
+transformers
+datasets
+accelerate
+peft
+huggingface_hub
+requests
+matplotlib
+torch
