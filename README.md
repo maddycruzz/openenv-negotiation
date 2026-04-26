@@ -5,6 +5,13 @@ colorFrom: indigo
 colorTo: purple
 sdk: docker
 pinned: false
+tags:
+  - openenv
+  - multi-agent
+  - medical
+  - negotiation
+  - reinforcement-learning
+  - grpo
 ---
 
 <div align="center">
@@ -255,6 +262,16 @@ This demonstrates that a 1-billion parameter model can learn structured multi-ag
 
 Run via `python baseline.py`. All 5 tasks, single episode each.
 
+**Aggregated by difficulty:**
+
+| Difficulty | Avg Score |
+|---|---|
+| Easy | **1.1083** |
+| Medium | **0.8127** |
+| Hard | **0.4764** |
+
+**Per-task breakdown:**
+
 | Task | Difficulty | Score | Consensus |
 |---|---|---|---|
 | single-round-consensus | Easy | 0.9900 | Reached |
@@ -438,7 +455,6 @@ openenv-negotiation/
 ├── inference.py             — Trained model runner (unsloth 4-bit + PEFT LoRA)
 ├── reward_curve_final.png   — GRPO training reward curve (0.2 → 1.0 over 695 steps)
 ├── openenv.yaml             — OpenEnv environment specification
-├── Dockerfile               — Production container for HuggingFace Spaces
 └── training/
     ├── train.py             — GRPO training script (Unsloth + TRL GRPOTrainer)
     └── grpo_training.ipynb  — Colab notebook version
