@@ -1,25 +1,12 @@
-FROM pytorch/pytorch:2.1.0-cuda11.8-cudnn8-runtime
+FROM python:3.11-slim
 
-RUN apt-get update && apt-get install -y git curl wget && rm -rf /var/lib/apt/lists/*
-
-# Unsloth for A10G Large (cu118 + torch 2.1.0 — must come before other deps)
-RUN pip install --no-cache-dir \
-    "unsloth[cu118-torch210] @ git+https://github.com/unslothai/unsloth.git"
-
-# Remaining deps (torch already in base image, unsloth installed above)
-RUN pip install --no-cache-dir \
-    trl \
-    transformers \
-    datasets \
-    accelerate \
-    peft \
-    huggingface_hub \
-    requests \
-    matplotlib
-
-COPY . /app
 WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
 
 EXPOSE 7860
 
-CMD ["python", "training/train.py"]
+CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "7860"]
