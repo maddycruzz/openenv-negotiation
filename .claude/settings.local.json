@@ -27,7 +27,8 @@
       "Bash(unzip -p /tmp/trl_152/trl-0.15.2-py3-none-any.whl \"trl/__init__.py\")",
       "Bash(unzip -p /tmp/peft_check/peft*.whl \"peft-*/METADATA\")",
       "Bash(unzip -p /tmp/tf_5204/transformers*.whl \"transformers/modeling_layers.py\")",
-      "Bash(echo \"Exit: $?\")"
+      "Bash(echo \"Exit: $?\")",
+      "Bash(git pull *)"
     ]
   }
 }

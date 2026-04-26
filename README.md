@@ -27,6 +27,14 @@ pinned: false
 
 ---
 
+## Blog & Media
+
+📝 **Blog Post:** https://huggingface.co/spaces/Bharath-1608/social-agent-negotiation-v1/blob/main/BLOG.md
+
+📹 **Video:** Coming Soon
+
+---
+
 ## The Problem
 
 Most multi-agent benchmarks test cooperation between agents that share a goal and share all the facts. That is the easy version of the problem.
