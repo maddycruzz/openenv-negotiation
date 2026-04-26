@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 api.py)",
+      "Bash(echo \"Server PID: $!\")",
+      "Bash(curl -s http://localhost:7860/health)",
+      "Bash(python3 baseline.py)",
+      "Bash(python3 *)",
+      "Bash(pip install *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(curl *)",
+      "Bash(git -C /Users/bharath/Desktop/openenv-negotiation/openenv-negotiation remote -v)",
+      "Bash(pkill -f \"uvicorn api:app\")",
+      "Bash(python *)",
+      "Bash(rm -rf /tmp/train-space)",
+      "Bash(git clone *)",
+      "Bash(pip index *)",
+      "Bash(pip download *)",
+      "Bash(unzip -p /tmp/trl_check/trl*.whl \"trl-*/METADATA\")",
+      "Bash(unzip -p /tmp/trl_14/trl*.whl \"trl-*/METADATA\")",
+      "Bash(unzip -p /tmp/trl_152/trl*.whl \"trl-*/METADATA\")",
+      "Bash(pip3 install *)",
+      "Bash(unzip -p /tmp/trl_152/trl-0.15.2-py3-none-any.whl \"trl-*/trl/__init__.py\")",
+      "Bash(unzip -l /tmp/trl_152/trl-0.15.2-py3-none-any.whl)",
+      "Bash(unzip -p /tmp/trl_152/trl-0.15.2-py3-none-any.whl \"trl/__init__.py\")",
+      "Bash(unzip -p /tmp/peft_check/peft*.whl \"peft-*/METADATA\")",
+      "Bash(unzip -p /tmp/tf_5204/transformers*.whl \"transformers/modeling_layers.py\")",
+      "Bash(echo \"Exit: $?\")"
+    ]
+  }
+}

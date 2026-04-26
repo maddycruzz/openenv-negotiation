@@ -7,27 +7,27 @@ import json
 import time
 import requests
 from typing import Dict, Any, Tuple, Optional, List
-from openai import OpenAI
 
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-# inference.py uses the HuggingFace Inference Router (OpenAI-compatible).
-# Set HF_TOKEN in your .env file to run against any HF-hosted model.
-# API_BASE_URL defaults to the HF router; override to point at any OpenAI-
-# compatible endpoint (local vLLM, Together AI, etc.).
+HF_TOKEN  = os.getenv("HF_TOKEN")
+ENV_URL   = os.getenv("ENV_URL", "https://Bharath-1608-social-agent-negotiation-v1.hf.space")
 
-API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
-MODEL_NAME   = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
-HF_TOKEN     = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
+BASE_MODEL    = "unsloth/Llama-3.2-1B-Instruct"
+ADAPTER_REPO  = "Bharath-1608/negotiation-agent-grpo"
+MODEL_NAME    = ADAPTER_REPO   # used in log lines
+BENCHMARK     = "social-agent-negotiation"
+MAX_NEW_TOKENS = 512
 
-if not HF_TOKEN:
-    print("WARNING: HF_TOKEN not set — inference calls will fail unless MODEL_NAME is a local endpoint.")
+# Baseline scores from Groq llama-3.3-70b-versatile (stored for comparison)
+BASELINE_SCORES = {
+    "single-round-consensus": 1.1083,
+    "adversarial-information": 0.4764,
+    "opioid-overdose": 0.4764,
+}
 
-BENCHMARK = "social-agent-negotiation"
-API_URL   = os.getenv("ENV_URL", "http://localhost:7860")
-
-client = OpenAI(api_key=HF_TOKEN or "dummy", base_url=API_BASE_URL)
+EVAL_TASKS = ["single-round-consensus", "adversarial-information", "opioid-overdose"]
 
 ACTION_TYPES = [
     "share_information",
@@ -40,12 +40,60 @@ ACTION_TYPES = [
     "flag_agenda",
 ]
 
-AGENT_A_MODEL = MODEL_NAME
-AGENT_B_MODEL = MODEL_NAME
+
+# ---------------------------------------------------------------------------
+# Model loading  (unsloth 4-bit + PEFT LoRA adapter)
+# ---------------------------------------------------------------------------
+
+def load_model():
+    """Load base model with 4-bit quantisation, then apply the trained LoRA."""
+    print(f"Loading base model: {BASE_MODEL} (4-bit) ...", flush=True)
+    try:
+        from unsloth import FastLanguageModel
+        model, tokenizer = FastLanguageModel.from_pretrained(
+            model_name=BASE_MODEL,
+            max_seq_length=2048,
+            load_in_4bit=True,
+            token=HF_TOKEN,
+        )
+        FastLanguageModel.for_inference(model)
+    except ImportError:
+        # Fallback: plain transformers + bitsandbytes if unsloth not installed
+        print("  unsloth not found — falling back to transformers BitsAndBytes.", flush=True)
+        from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+        import torch
+        bnb_cfg = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=torch.float16)
+        tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL, token=HF_TOKEN)
+        model = AutoModelForCausalLM.from_pretrained(
+            BASE_MODEL, quantization_config=bnb_cfg, device_map="auto", token=HF_TOKEN
+        )
+
+    print(f"Loading LoRA adapter: {ADAPTER_REPO} ...", flush=True)
+    from peft import PeftModel
+    model = PeftModel.from_pretrained(model, ADAPTER_REPO, token=HF_TOKEN)
+    model.eval()
+
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+
+    print("Model ready.\n", flush=True)
+    return model, tokenizer
+
+
+# Global model handle — loaded once at startup.
+_model = None
+_tokenizer = None
+
+
+def get_model():
+    global _model, _tokenizer
+    if _model is None:
+        _model, _tokenizer = load_model()
+    return _model, _tokenizer
 
 
 # ---------------------------------------------------------------------------
-# System prompt — identical quality to baseline.py
+# System prompt
 # ---------------------------------------------------------------------------
 
 def get_system_prompt(agent_id: str) -> str:
@@ -77,41 +125,75 @@ If you detect the other agent is driven by their hidden agenda, use flag_agenda.
 
 
 # ---------------------------------------------------------------------------
-# Action generation
+# Action generation — local inference
 # ---------------------------------------------------------------------------
+
+def _build_chat_input(agent_id: str, observation: Dict[str, Any]) -> str:
+    """Format a chat-template prompt string for the model."""
+    model, tokenizer = get_model()
+    messages = [
+        {"role": "system", "content": get_system_prompt(agent_id)},
+        {"role": "user",   "content": json.dumps(observation)},
+    ]
+    # apply_chat_template with add_generation_prompt so the model continues from here
+    return tokenizer.apply_chat_template(
+        messages, tokenize=False, add_generation_prompt=True
+    )
+
+
+def _extract_json(text: str) -> Dict[str, Any]:
+    """Pull the first valid JSON object out of raw model output."""
+    # Try whole text first
+    try:
+        return json.loads(text.strip())
+    except json.JSONDecodeError:
+        pass
+    # Find the outermost { ... } block
+    start = text.find("{")
+    end   = text.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        try:
+            return json.loads(text[start:end + 1])
+        except json.JSONDecodeError:
+            pass
+    raise ValueError(f"No valid JSON found in model output: {text[:200]}")
+
 
 def generate_agent_action(
     agent_id: str,
     observation: Dict[str, Any],
     retry_count: int = 0,
 ) -> Dict[str, Any]:
-    """Generate an action from the inference model. Retries once on failure."""
-    system_prompt = get_system_prompt(agent_id)
-    user_message  = json.dumps(observation)
+    """Generate an action from the local model. Retries once on parse failure."""
+    model, tokenizer = get_model()
+    import torch
+
+    prompt = _build_chat_input(agent_id, observation)
+    inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
 
     try:
-        response = client.chat.completions.create(
-            model    = AGENT_A_MODEL if agent_id == "agent_a" else AGENT_B_MODEL,
-            messages = [
-                {"role": "system", "content": system_prompt},
-                {"role": "user",   "content": user_message},
-            ],
-            temperature     = 0.2,
-            response_format = {"type": "json_object"},
-        )
-        content = response.choices[0].message.content
-        if not content:
-            raise ValueError("Empty response from model")
+        with torch.no_grad():
+            output_ids = model.generate(
+                **inputs,
+                max_new_tokens=MAX_NEW_TOKENS,
+                temperature=0.3,
+                do_sample=True,
+                pad_token_id=tokenizer.eos_token_id,
+                eos_token_id=tokenizer.eos_token_id,
+            )
+        # Decode only the newly generated tokens
+        new_ids = output_ids[0][inputs["input_ids"].shape[1]:]
+        raw_text = tokenizer.decode(new_ids, skip_special_tokens=True)
 
-        action = json.loads(content)
-        action["agent_id"] = agent_id   # ensure agent_id is always correct
+        action = _extract_json(raw_text)
+        action["agent_id"] = agent_id
         return action
 
     except (json.JSONDecodeError, ValueError) as e:
         if retry_count < 1:
-            print(f"  [{agent_id}] JSON parse error. Retrying... ({str(e)})")
+            print(f"  [{agent_id}] JSON parse error — retrying. ({e})", flush=True)
             return generate_agent_action(agent_id, observation, retry_count + 1)
-        print(f"  [{agent_id}] Failed to parse JSON after retry. Using fallback.")
+        print(f"  [{agent_id}] JSON parse failed after retry — using fallback.", flush=True)
         return {
             "agent_id":    agent_id,
             "action_type": "request_clarification",
@@ -120,25 +202,23 @@ def generate_agent_action(
         }
 
     except Exception as e:
-        print(f"  [{agent_id}] API Error: {str(e)}")
+        print(f"  [{agent_id}] Generation error: {e}", flush=True)
         if retry_count < 1:
-            time.sleep(2)
             return generate_agent_action(agent_id, observation, retry_count + 1)
-        print(f"  [{agent_id}] API error persisting. Using fallback.")
         return {
             "agent_id":    agent_id,
             "action_type": "request_clarification",
-            "content":     "API error fallback.",
-            "reasoning":   "Fallback action due to API failure.",
+            "content":     "Generation error fallback.",
+            "reasoning":   "Fallback action due to generation failure.",
         }
 
 
 # ---------------------------------------------------------------------------
-# OpenEnv-standard structured logging
+# Structured logging — identical format required by checker
 # ---------------------------------------------------------------------------
 
 def _safe(v: float) -> float:
-    return float(round(max(0.0001, min(0.9999, v)), 4))
+    return float(round(max(0.0, min(1.0, v)), 4))
 
 
 def log_start(task: str, env: str, model: str) -> None:
@@ -168,18 +248,18 @@ def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> No
 # ---------------------------------------------------------------------------
 
 def run_episode(task_id: str) -> Tuple[Optional[Dict[str, Any]], int, float]:
-    """Run a single full episode. Returns (episode_result, turn_count, score)."""
     log_start(task=task_id, env=BENCHMARK, model=MODEL_NAME)
 
     try:
-        reset_resp = requests.post(f"{API_URL}/reset", json={"task_id": task_id}, timeout=30)
+        reset_resp = requests.post(f"{ENV_URL}/reset", json={"task_id": task_id}, timeout=30)
         reset_resp.raise_for_status()
         state = reset_resp.json()
     except Exception as e:
-        log_end(success=False, steps=0, score=0.01, rewards=[0.01])
-        return None, 0, 0.01
+        print(f"  Reset failed: {e}", flush=True)
+        log_end(success=False, steps=0, score=0.0, rewards=[0.0])
+        return None, 0, 0.0
 
-    session_id    = state.get("session_id")   # isolate from concurrent episodes
+    session_id    = state.get("session_id")
     obs_a         = state.get("obs_agent_a", {})
     obs_b         = state.get("obs_agent_b", {})
     current_agent = "Agent A"
@@ -193,7 +273,7 @@ def run_episode(task_id: str) -> Tuple[Optional[Dict[str, Any]], int, float]:
         active_id  = "agent_a" if current_agent == "Agent A" else "agent_b"
         obs        = obs_a      if current_agent == "Agent A" else obs_b
 
-        print(f"  Turn {turn_count}: {active_id} is thinking...", flush=True)
+        print(f"  Turn {turn_count}: {active_id} thinking...", flush=True)
         action     = generate_agent_action(active_id, obs)
         action_str = json.dumps(action)
         print(f"  -> {active_id}: {action.get('action_type')}", flush=True)
@@ -206,7 +286,7 @@ def run_episode(task_id: str) -> Tuple[Optional[Dict[str, Any]], int, float]:
             if session_id:
                 step_payload["session_id"] = session_id
 
-            step_resp = requests.post(f"{API_URL}/step", json=step_payload, timeout=30)
+            step_resp = requests.post(f"{ENV_URL}/step", json=step_payload, timeout=30)
 
             if not step_resp.ok:
                 error_msg = f"HTTP {step_resp.status_code}: {step_resp.text[:100]}"
@@ -238,12 +318,12 @@ def run_episode(task_id: str) -> Tuple[Optional[Dict[str, Any]], int, float]:
             break
 
         current_agent = "Agent B" if current_agent == "Agent A" else "Agent A"
-        time.sleep(0.05)
+        time.sleep(0.1)
 
-    score   = 0.01
+    score   = 0.0
     success = False
     if final_result:
-        score   = _safe(float(final_result.get("total_reward", 0.01)))
+        score   = _safe(float(final_result.get("total_reward", 0.0)))
         success = final_result.get("final_consensus") == "reached"
 
     log_end(success=success, steps=turn_count, score=score, rewards=rewards_list)
@@ -255,42 +335,29 @@ def run_episode(task_id: str) -> Tuple[Optional[Dict[str, Any]], int, float]:
 # ---------------------------------------------------------------------------
 
 def main():
-    print(f"\n=== Social Agent Negotiation — Inference Runner ===")
-    print(f"Model : {MODEL_NAME}")
-    print(f"Router: {API_BASE_URL}")
-    print(f"Env   : {API_URL}\n")
+    print(f"\n=== Social Agent Negotiation — Trained Model Inference ===")
+    print(f"Base  : {BASE_MODEL}")
+    print(f"Adapter: {ADAPTER_REPO}")
+    print(f"Env   : {ENV_URL}\n")
+
+    # Eagerly load model so startup errors surface before any episodes run
+    get_model()
 
     # Health check
     print("Checking environment health...")
     try:
-        h = requests.get(f"{API_URL}/health", timeout=10)
+        h = requests.get(f"{ENV_URL}/health", timeout=10)
         h.raise_for_status()
         print("Environment is healthy.\n")
     except Exception as e:
-        print(f"ERROR: Cannot connect to environment at {API_URL}: {e}")
+        print(f"ERROR: Cannot connect to environment at {ENV_URL}: {e}")
         sys.exit(1)
 
-    # Fetch tasks
-    try:
-        tasks_resp = requests.get(f"{API_URL}/tasks", timeout=10)
-        tasks_resp.raise_for_status()
-        tasks = tasks_resp.json()
-    except Exception as e:
-        print(f"Failed to fetch tasks: {e}", file=sys.stderr)
-        tasks = [
-            {"id": "single-round-consensus"},
-            {"id": "multi-round-negotiation"},
-            {"id": "adversarial-information"},
-        ]
-
-    task_items = tasks.items() if isinstance(tasks, dict) else enumerate(tasks)
-
     results = []
-    for key, task_data in task_items:
-        task_id    = task_data.get("id", str(key))
-        difficulty = task_data.get("difficulty", "unknown")
-        print(f"\n--- Task: {task_id} ({difficulty}) ---")
-
+    for task_id in EVAL_TASKS:
+        print(f"\n{'='*60}")
+        print(f"Task: {task_id}")
+        print(f"{'='*60}")
         episode_result, turns_used, score = run_episode(task_id)
 
         consensus_reached = False
@@ -298,10 +365,9 @@ def main():
             consensus_reached = episode_result.get("final_consensus") == "reached"
 
         results.append({
-            "task_id":          task_id,
-            "difficulty":       difficulty,
-            "score":            score,
-            "turns_used":       turns_used,
+            "task_id":           task_id,
+            "score":             score,
+            "turns_used":        turns_used,
             "consensus_reached": consensus_reached,
             "raw_episode_result": episode_result,
         })
@@ -309,19 +375,28 @@ def main():
     # Save results
     with open("inference_results.json", "w") as f:
         json.dump(results, f, indent=4)
-    print("\nSaved detailed results to inference_results.json")
+    print("\nSaved results to inference_results.json")
 
-    # Summary table
-    print(f"\n{'Task ID':<25} | {'Difficulty':<10} | {'Score':<8} | {'Turns':<7} | {'Consensus'}")
-    print("-" * 75)
+    # Before / after comparison table
+    print(f"\n{'Task':<30} | {'Baseline (Groq 70B)':<20} | {'Trained 1B':<12} | {'Delta':<8} | Consensus")
+    print("-" * 90)
     for r in results:
+        tid      = r["task_id"]
+        baseline = BASELINE_SCORES.get(tid, float("nan"))
+        trained  = r["score"]
+        delta    = trained - baseline if baseline == baseline else 0.0
+        sign     = "+" if delta >= 0 else ""
         print(
-            f"{str(r['task_id'])[:24]:<25} | "
-            f"{str(r['difficulty']):<10} | "
-            f"{r['score']:<8} | "
-            f"{r['turns_used']:<7} | "
+            f"{tid[:29]:<30} | "
+            f"{baseline:<20.4f} | "
+            f"{trained:<12.4f} | "
+            f"{sign}{delta:<7.4f} | "
             f"{'Yes' if r['consensus_reached'] else 'No'}"
         )
+
+    avg_trained  = sum(r["score"] for r in results) / len(results) if results else 0
+    avg_baseline = sum(BASELINE_SCORES.get(r["task_id"], 0) for r in results) / len(results) if results else 0
+    print(f"\nAverage — Baseline: {avg_baseline:.4f}  |  Trained: {avg_trained:.4f}  |  Delta: {'+' if avg_trained >= avg_baseline else ''}{avg_trained - avg_baseline:.4f}")
 
 
 if __name__ == "__main__":
