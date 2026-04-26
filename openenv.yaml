@@ -22,11 +22,17 @@ tasks:
   - id: adversarial-information
     name: Adversarial Information Detection
     difficulty: hard
+  - id: pediatric-meningitis
+    name: Pediatric Meningitis
+    difficulty: hard
+  - id: opioid-overdose
+    name: Opioid Overdose
+    difficulty: hard
 observation_space:
   type: structured
   format: json
 action_space:
   type: discrete-structured
   format: json
-reward_range: [0.01, 0.99]
+reward_range: [0.05, 0.95]
 license: Apache-2.0
